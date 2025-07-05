@@ -59,7 +59,12 @@
       "mcp__quickbooks-mcp__qb_list_payments",
       "mcp__quickbooks-mcp__qb_list_bills",
       "mcp__quickbooks-mcp__qb_list_accounts",
-      "mcp__quickbooks-mcp__qb_report"
+      "mcp__quickbooks-mcp__qb_report",
+      "mcp__quickbooks-mcp__qb_company_info",
+      "mcp__quickbooks-mcp__qb_list_vendors",
+      "mcp__quickbooks-mcp__qb_list_items",
+      "mcp__quickbooks-mcp__qb_list_estimates",
+      "mcp__quickbooks-mcp__qb_list_employees"
     ],
     "deny": []
   },
