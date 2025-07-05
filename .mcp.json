@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "quickbooks-mcp": {
+      "command": "npx",
+      "args": ["tsx", "/Users/jon/Projects/quickbooks-mcp2/src/server.ts"]
+    }
+  }
+}
