@@ -42,8 +42,7 @@ log(`Process arguments: ${JSON.stringify(process.argv)}`);
 // Initialize FastMCP server
 const mcp = new FastMCP({
   name: 'quickbooks-mcp',
-  version: '1.0.0',
-  description: 'MCP server for QuickBooks Online integration'
+  version: '1.0.0'
 });
 
 // Add health check tool

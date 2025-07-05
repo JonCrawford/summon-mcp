@@ -31,9 +31,9 @@ const getTokensPath = () => {
   const configResult = getCachedConfig();
   if (isConfigError(configResult)) {
     // Fallback to sandbox tokens if config error
-    return path.join(path.dirname(path.dirname(import.meta.url.replace('file://', ''))), 'tokens_sandbox.json');
+    return path.join(process.cwd(), 'tokens_sandbox.json');
   }
-  return path.join(path.dirname(path.dirname(import.meta.url.replace('file://', ''))), configResult.tokenFilePath);
+  return path.join(process.cwd(), configResult.tokenFilePath);
 };
 
 // Export for backward compatibility - this needs to be a getter

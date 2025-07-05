@@ -46,20 +46,12 @@ async function refreshTokens() {
     const token = oauthClient.getToken();
     console.log('Token object has properties:', Object.keys(token));
     
-    // Extract the JSON data from the response
-    let tokenJson: any = {};
-    try {
-      tokenJson = authResponse.getJson ? authResponse.getJson() : authResponse;
-    } catch (e) {
-      console.log('Could not get JSON from response');
-    }
-    
     // Prepare token data to save
     const tokenData = {
-      access_token: token.access_token || tokenJson.access_token,
-      refresh_token: token.refresh_token || tokenJson.refresh_token || refreshToken,
-      expires_at: Date.now() + ((token.expires_in || tokenJson.expires_in || 3600) * 1000),
-      x_refresh_token_expires_at: Date.now() + ((token.x_refresh_token_expires_in || tokenJson.x_refresh_token_expires_in || 8726400) * 1000),
+      access_token: token.access_token || authResponse.access_token,
+      refresh_token: token.refresh_token || authResponse.refresh_token || refreshToken,
+      expires_at: Date.now() + ((token.expires_in || authResponse.expires_in || 3600) * 1000),
+      x_refresh_token_expires_at: Date.now() + ((token.x_refresh_token_expires_in || authResponse.x_refresh_token_expires_in || 8726400) * 1000),
       realm_id: realmId,
       created_at: Date.now()
     };

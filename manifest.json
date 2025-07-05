@@ -1,0 +1,91 @@
+{
+  "name": "quickbooks-mcp",
+  "version": "2.0.0",
+  "description": "Multi-tenant QuickBooks Online integration for Claude Desktop with centralized token management",
+  "author": "QuickBooks MCP Team",
+  "icon": "icon.png",
+  "homepage": "https://github.com/your-org/quickbooks-mcp",
+  "license": "MIT",
+  "server": {
+    "command": "node",
+    "args": ["dist/server.js"],
+    "env": {}
+  },
+  "userConfigSchema": {
+    "type": "object",
+    "properties": {
+      "brokerApiUrl": {
+        "type": "string",
+        "title": "Token Broker URL",
+        "description": "URL of your QuickBooks token broker service (e.g., https://qb-broker.example.com)",
+        "format": "uri",
+        "default": "",
+        "order": 1
+      },
+      "brokerApiToken": {
+        "type": "string",
+        "title": "Broker API Token",
+        "description": "Your authentication token for the broker service",
+        "secret": true,
+        "order": 2
+      },
+      "defaultCompany": {
+        "type": "string",
+        "title": "Default Company (Optional)",
+        "description": "Default QuickBooks company name or ID to use when not specified",
+        "order": 3
+      },
+      "cacheTTL": {
+        "type": "number",
+        "title": "Cache Duration (hours)",
+        "description": "How long to cache company data locally (reduces API calls)",
+        "default": 24,
+        "minimum": 1,
+        "maximum": 168,
+        "order": 4
+      },
+      "enableDebugLogging": {
+        "type": "boolean",
+        "title": "Enable Debug Logging",
+        "description": "Enable detailed logging for troubleshooting (logs to stderr)",
+        "default": false,
+        "order": 5
+      }
+    },
+    "required": ["brokerApiUrl", "brokerApiToken"],
+    "additionalProperties": false
+  },
+  "requirements": {
+    "node": ">=18.0.0"
+  },
+  "capabilities": {
+    "tools": true,
+    "prompts": true,
+    "resources": true
+  },
+  "categories": [
+    "accounting",
+    "business",
+    "finance"
+  ],
+  "keywords": [
+    "quickbooks",
+    "accounting",
+    "invoices",
+    "finance",
+    "business"
+  ],
+  "platforms": {
+    "darwin": {
+      "supported": true
+    },
+    "win32": {
+      "supported": true
+    },
+    "linux": {
+      "supported": true
+    }
+  },
+  "minimumClaudeDesktopVersion": "0.7.0",
+  "updateUrl": "https://github.com/your-org/quickbooks-mcp/releases/latest/download/quickbooks-mcp.dxt"
+}

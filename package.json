@@ -1,14 +1,21 @@
 {
   "name": "quickbooks-mcp",
   "version": "1.0.0",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "quickbooks-mcp": "./dist/index.js"
   },
   "scripts": {
     "start": "tsx src/server.ts",
+    "start:broker": "tsx src/server-broker.ts",
+    "start:mock-broker": "node scripts/start-mock-broker.js",
+    "setup:demo": "node scripts/setup-demo-tokens.js",
     "dev": "tsx watch src/server.ts",
+    "dev:broker": "tsx watch src/server-broker.ts",
     "build": "tsc",
+    "build:dxt": "npm run build && npm run package:dxt",
+    "package:dxt": "node scripts/package-dxt.js",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,9 +28,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@types/express": "^5.0.3",
     "dotenv": "^17.0.1",
-    "express": "^5.1.0",
     "fastmcp": "^3.8.2",
     "intuit-oauth": "^4.2.0",
     "node-quickbooks": "^2.0.46",
@@ -36,6 +41,7 @@
     "@types/node": "^24.0.10",
     "@typescript-eslint/eslint-plugin": "^8.35.1",
     "@typescript-eslint/parser": "^8.35.1",
+    "archiver": "^7.0.0",
     "eslint": "^9.30.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",

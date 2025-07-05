@@ -46,7 +46,12 @@
       "Bash(osascript:*)",
       "Bash(open:*)",
       "Bash(timeout 5s npx tsx src/server.ts)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "mcp__repomix__pack_codebase",
+      "mcp__repomix__grep_repomix_output",
+      "mcp__repomix__file_system_read_file",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   },

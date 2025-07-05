@@ -61,7 +61,7 @@ export function isConfigError(config: QuickBooksConfig | ConfigError): config is
 /**
  * Get OAuth URLs based on the environment
  */
-export function getOAuthUrls(environment: 'production' | 'sandbox') {
+export function getOAuthUrls(_environment: 'production' | 'sandbox') {
   // QuickBooks OAuth URLs are the same for both environments
   // The environment is specified during OAuth client initialization
   return {

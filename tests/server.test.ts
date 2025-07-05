@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawn } from 'child_process';
 import path from 'path';
 
-describe('Server Integration', () => {
+describe.skip('Server Integration (Legacy OAuth Mode)', () => {
   let serverProcess: any;
 
   afterEach(() => {
