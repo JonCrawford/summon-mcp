@@ -103,6 +103,51 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
     });
   });
   
+  // Register CompanyInfo tool
+  mcp.addTool({
+    name: 'qb_company_info',
+    description: 'Get QuickBooks company information',
+    parameters: z.object({}),
+    execute: async () => {
+      try {
+        const qbo = await getQBOClient();
+        
+        return new Promise((resolve, reject) => {
+          // QuickBooks CompanyInfo typically has ID of 1
+          (qbo as any).getCompanyInfo(1, (err: any, data: any) => {
+            if (err) {
+              // Try findCompanyInfos if direct lookup fails
+              (qbo as any).findCompanyInfos((err2: any, data2: any) => {
+                if (err2) {
+                  reject(new Error(`Failed to fetch company info: ${err.message || err}`));
+                } else {
+                  resolve({
+                    content: [{
+                      type: 'text',
+                      text: JSON.stringify(data2, null, 2)
+                    }]
+                  });
+                }
+              });
+            } else {
+              resolve({
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify(data, null, 2)
+                }]
+              });
+            }
+          });
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error(`Failed to get company info: ${error}`);
+      }
+    }
+  });
+  
   // Register the unified report tool
   mcp.addTool({
     name: 'qb_report',

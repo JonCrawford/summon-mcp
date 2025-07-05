@@ -1,8 +1,18 @@
 {
   "mcpServers": {
-    "quickbooks-mcp": {
+    "quickbooks": {
       "command": "npx",
-      "args": ["tsx", "/Users/jon/Projects/quickbooks-mcp2/src/server.ts"]
+      "args": [
+        "tsx",
+        "/Users/jon/Projects/quickbooks-mcp2/src/server.ts"
+      ],
+      "env": {
+        "INTUIT_CLIENT_ID": "ABhWqP8aITWOieKqKzXCJIWKlkeHMjIjK8hhVaSBT42biBJrax",
+        "INTUIT_CLIENT_SECRET": "lUM5oqOzu93RxouuGeTQsLcHwNiA6afjgkZBAyjv",
+        "QUICKBOOKS_PRODUCTION": true,
+        "INTUIT_CLIENT_ID_PRODUCTION": "ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8",
+        "INTUIT_CLIENT_SECRET_PRODUCTION": "BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx"
+      }
     }
   }
 }

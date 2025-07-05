@@ -1,0 +1,11 @@
+{
+  "access_token": "your_access_token_here",
+  "refresh_token": "your_refresh_token_here",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "x_refresh_token_expires_in": 8726400,
+  "id_token": "optional_id_token",
+  "realm_id": "9341454914780836",
+  "expires_at": 1751744848000,
+  "x_refresh_token_expires_at": 1760471248000
+}

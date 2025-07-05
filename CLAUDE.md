@@ -154,3 +154,53 @@ QUICKBOOKS_PRODUCTION=true  # Optional, defaults to false (sandbox mode)
 4. Test tools via Claude Desktop or direct MCP client
 5. Run tests frequently with `npm test`
 6. Use recorded fixtures to test without hitting live API
+
+## MCP Inspector CLI Usage
+
+### Basic Usage
+- Basic CLI invocation:
+  ```
+  npx @modelcontextprotocol/inspector --cli node build/index.js
+  ```
+
+### Configuration and Server Options
+- Run with config file:
+  ```
+  npx @modelcontextprotocol/inspector --cli --config path/to/config.json --server myserver
+  ```
+
+### Tool and Resource Management
+- List available tools:
+  ```
+  npx @modelcontextprotocol/inspector --cli node build/index.js --method tools/list
+  ```
+- Call a specific tool:
+  ```
+  npx @modelcontextprotocol/inspector --cli node build/index.js --method tools/call --tool-name mytool --tool-arg key=value --tool-arg another=value2
+  ```
+- List available resources:
+  ```
+  npx @modelcontextprotocol/inspector --cli node build/index.js --method resources/list
+  ```
+- List available prompts:
+  ```
+  npx @modelcontextprotocol/inspector --cli node build/index.js --method prompts/list
+  ```
+
+### Remote Server Connections
+- Connect to remote MCP server (default SSE transport):
+  ```
+  npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com
+  ```
+- Connect with Streamable HTTP transport:
+  ```
+  npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --transport http
+  ```
+- Call tool on remote server:
+  ```
+  npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --method tools/call --tool-name remotetool --tool-arg param=value
+  ```
+- List resources from remote server:
+  ```
+  npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --method resources/list
+  ```

@@ -26,16 +26,30 @@ export function getConfig(): QuickBooksConfig | ConfigError {
   const isProduction = process.env.QUICKBOOKS_PRODUCTION === 'true';
   const environment = isProduction ? 'production' : 'sandbox';
   
-  // Read OAuth credentials
-  const clientId = process.env.INTUIT_CLIENT_ID;
-  const clientSecret = process.env.INTUIT_CLIENT_SECRET;
+  // Read OAuth credentials - check for production-specific credentials first
+  let clientId: string | undefined;
+  let clientSecret: string | undefined;
+  
+  if (isProduction) {
+    // In production mode, prefer production-specific credentials
+    clientId = process.env.INTUIT_CLIENT_ID_PRODUCTION || process.env.INTUIT_CLIENT_ID;
+    clientSecret = process.env.INTUIT_CLIENT_SECRET_PRODUCTION || process.env.INTUIT_CLIENT_SECRET;
+  } else {
+    // In sandbox mode, use regular credentials
+    clientId = process.env.INTUIT_CLIENT_ID;
+    clientSecret = process.env.INTUIT_CLIENT_SECRET;
+  }
   
   // Validate required credentials
   if (!clientId || !clientSecret) {
+    const envVarNames = isProduction 
+      ? 'INTUIT_CLIENT_ID_PRODUCTION and INTUIT_CLIENT_SECRET_PRODUCTION (or INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET)'
+      : 'INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET';
+    
     return {
       error: 'CONFIGURATION_ERROR',
-      message: 'Missing required QuickBooks OAuth credentials',
-      details: 'Please set INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET environment variables'
+      message: `Missing required QuickBooks OAuth credentials for ${environment} mode`,
+      details: `Please set ${envVarNames} environment variables`
     };
   }
   
