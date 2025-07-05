@@ -12,6 +12,8 @@ This is a QuickBooks MCP (Model Context Protocol) Server that provides read-only
 
 - It's important to adhere to the MCP spec where only valid JSON is emitted in MCP responses. Clients expect only valid JSON and will error without it.
 - Fixed "Method not found" errors for `resources/list` and `prompts/list` endpoints by adding minimal resource and prompt to the server. FastMCP only sets up these handlers if resources/prompts are registered, so we added a server info resource and help prompt to ensure the endpoints are available.
+- Server operates in sandbox mode by default. Set `QUICKBOOKS_PRODUCTION=true` to use production mode.
+- Token files are isolated: `tokens.json` for production, `tokens_sandbox.json` for sandbox.
 
 ## Development Commands
 
@@ -94,9 +96,12 @@ VCR_MODE=record npm test
 
 1. **Lean Implementation**: Target < 200 LOC for proof of concept
 2. **No Build Step**: Uses tsx for direct TypeScript execution
-3. **Simple Token Storage**: Flat file (`tokens.json`) instead of database
+3. **Simple Token Storage**: Flat files with environment isolation
+   - `tokens.json` for production mode
+   - `tokens_sandbox.json` for sandbox mode (default)
 4. **Read-Only Access**: No create/update/delete operations
 5. **Tool Naming**: `qb_list_<entity>s` pattern (e.g., `qb_list_customers`)
+6. **Safe Defaults**: Sandbox mode by default, explicit opt-in for production
 
 ## MCP Tool Structure
 
@@ -131,6 +136,7 @@ Required in `.env`:
 INTUIT_CLIENT_ID=your_client_id
 INTUIT_CLIENT_SECRET=your_client_secret
 PORT=8080  # Optional, defaults to 8080
+QUICKBOOKS_PRODUCTION=true  # Optional, defaults to false (sandbox mode)
 ```
 
 ## Error Handling

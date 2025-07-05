@@ -2,24 +2,61 @@ import OAuthClient from 'intuit-oauth';
 import fs from 'fs/promises';
 import path from 'path';
 import QuickBooks from 'node-quickbooks';
+import { getConfig, isConfigError, type QuickBooksConfig, type ConfigError } from './config.js';
 
-// Token storage path - relative to project root, not cwd
-const TOKENS_PATH = path.join(path.dirname(path.dirname(import.meta.url.replace('file://', ''))), 'tokens.json');
+// Lazy configuration loading
+let _configResult: QuickBooksConfig | ConfigError | null = null;
+
+/**
+ * Lazily loads and caches the configuration
+ */
+function getCachedConfig(): QuickBooksConfig | ConfigError {
+  if (!_configResult) {
+    _configResult = getConfig();
+  }
+  return _configResult;
+}
+
+/**
+ * Resets the cached configuration (for testing purposes)
+ * @internal
+ */
+export function __resetConfigCacheForTests(): void {
+  _configResult = null;
+  oauthClient = null; // Also reset the OAuth client
+}
+
+// Token storage path - determined by config
+const getTokensPath = () => {
+  const configResult = getCachedConfig();
+  if (isConfigError(configResult)) {
+    // Fallback to sandbox tokens if config error
+    return path.join(path.dirname(path.dirname(import.meta.url.replace('file://', ''))), 'tokens_sandbox.json');
+  }
+  return path.join(path.dirname(path.dirname(import.meta.url.replace('file://', ''))), configResult.tokenFilePath);
+};
+
+// Export for backward compatibility - this needs to be a getter
+export const TOKENS_PATH = getTokensPath();
 
 // Lazy initialization of OAuth Client
 let oauthClient: OAuthClient | null = null;
 
 function getOAuthClient(): OAuthClient {
   if (!oauthClient) {
-    // Validate environment variables
-    if (!process.env.INTUIT_CLIENT_ID || !process.env.INTUIT_CLIENT_SECRET) {
-      throw new Error('Missing required environment variables: INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET');
+    const configResult = getCachedConfig();
+    
+    // Check if we have valid configuration
+    if (isConfigError(configResult)) {
+      throw new Error(configResult.message);
     }
     
+    const config = configResult as QuickBooksConfig;
+    
     oauthClient = new OAuthClient({
-      clientId: process.env.INTUIT_CLIENT_ID,
-      clientSecret: process.env.INTUIT_CLIENT_SECRET,
-      environment: 'sandbox', // Use 'production' for live apps
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      environment: config.environment,
       redirectUri: 'http://localhost:8080/callback',
       logging: false // Disable logging for Claude Desktop (read-only environment)
     });
@@ -73,7 +110,7 @@ export async function handleCallback(url: string): Promise<any> {
     };
     
     // Save tokens to file
-    await fs.writeFile(TOKENS_PATH, JSON.stringify(tokenData, null, 2));
+    await fs.writeFile(getTokensPath(), JSON.stringify(tokenData, null, 2));
     
     // Set tokens on the client for immediate use
     getOAuthClient().setToken(authResponse);
@@ -93,13 +130,13 @@ export async function getQBOClient(): Promise<QuickBooks> {
   try {
     // Check if tokens file exists
     try {
-      await fs.access(TOKENS_PATH);
+      await fs.access(getTokensPath());
     } catch {
       throw new Error('No tokens found. Please connect to QuickBooks first by visiting /connect');
     }
     
     // Load tokens from file
-    const tokenData = JSON.parse(await fs.readFile(TOKENS_PATH, 'utf-8'));
+    const tokenData = JSON.parse(await fs.readFile(getTokensPath(), 'utf-8'));
     
     // Check if access token is expired
     const now = Date.now();
@@ -126,17 +163,26 @@ export async function getQBOClient(): Promise<QuickBooks> {
       tokenData.x_refresh_token_expires_at = Date.now() + (refreshResponse.x_refresh_token_expires_in * 1000);
       
       // Save updated tokens
-      await fs.writeFile(TOKENS_PATH, JSON.stringify(tokenData, null, 2));
+      await fs.writeFile(getTokensPath(), JSON.stringify(tokenData, null, 2));
     }
+    
+    const configResult = getCachedConfig();
+    
+    // Check if we have valid configuration
+    if (isConfigError(configResult)) {
+      throw new Error(configResult.message);
+    }
+    
+    const config = configResult as QuickBooksConfig;
     
     // Create and return QuickBooks client
     const qbo = new QuickBooks(
-      process.env.INTUIT_CLIENT_ID,
-      process.env.INTUIT_CLIENT_SECRET,
+      config.clientId,
+      config.clientSecret,
       tokenData.access_token,
       false, // No token secret for OAuth 2.0
       tokenData.realm_id,
-      true, // Use sandbox
+      !config.isProduction, // Use sandbox = true when NOT in production
       false, // Disable debug - must be false for MCP stdio transport
       null, // Minor version
       '2.0', // OAuth version
@@ -150,4 +196,4 @@ export async function getQBOClient(): Promise<QuickBooks> {
   }
 }
 
-export { getOAuthClient, TOKENS_PATH };
+export { getOAuthClient };

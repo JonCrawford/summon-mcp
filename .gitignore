@@ -39,6 +39,7 @@ pids
 
 # QuickBooks tokens
 tokens.json
+tokens_sandbox.json
 
 # PollyJS recordings (may contain sensitive data)
 polly/fixtures/

@@ -12,6 +12,7 @@ A Model Context Protocol (MCP) server that provides read-only access to QuickBoo
 2. Configure environment variables:
    - Copy `.env.example` to `.env`
    - Add your QuickBooks OAuth credentials
+   - Set `QUICKBOOKS_PRODUCTION=true` for production mode (defaults to sandbox)
 
 3. Authenticate with QuickBooks:
    - Run `npm start`
@@ -84,10 +85,20 @@ Once connected, you can ask Claude things like:
 
 ## Token Management
 
-- Tokens are stored in `tokens.json`
+- Tokens are stored in `tokens.json` (production) or `tokens_sandbox.json` (sandbox)
 - Access tokens expire after 1 hour (auto-refreshed)
 - Refresh tokens expire after 100 days
 - To manually refresh: `npm run refresh-tokens`
+
+## Production vs Sandbox Mode
+
+The server operates in sandbox mode by default for safety. To use production mode:
+
+1. Set the environment variable: `QUICKBOOKS_PRODUCTION=true`
+2. Authenticate with QuickBooks production account
+3. Tokens will be saved to `tokens.json` (production) instead of `tokens_sandbox.json` (sandbox)
+
+Note: You can maintain separate authentication for both environments.
 
 ## Development
 

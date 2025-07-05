@@ -1,0 +1,167 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { getConfig, isConfigError, getOAuthUrls, getApiBaseUrl } from './config.js';
+
+describe('Configuration Module', () => {
+  // Store original env vars
+  const originalEnv = { ...process.env };
+  
+  beforeEach(() => {
+    // Clear relevant env vars before each test
+    delete process.env.QUICKBOOKS_PRODUCTION;
+    delete process.env.INTUIT_CLIENT_ID;
+    delete process.env.INTUIT_CLIENT_SECRET;
+  });
+  
+  afterEach(() => {
+    // Restore original env vars
+    process.env = { ...originalEnv };
+  });
+  
+  describe('getConfig', () => {
+    it('should default to sandbox mode when QUICKBOOKS_PRODUCTION is not set', () => {
+      process.env.INTUIT_CLIENT_ID = 'test_client_id';
+      process.env.INTUIT_CLIENT_SECRET = 'test_client_secret';
+      
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(false);
+      if (!isConfigError(config)) {
+        expect(config.isProduction).toBe(false);
+        expect(config.environment).toBe('sandbox');
+        expect(config.tokenFilePath).toBe('tokens_sandbox.json');
+      }
+    });
+    
+    it('should default to sandbox mode when QUICKBOOKS_PRODUCTION is not "true"', () => {
+      process.env.QUICKBOOKS_PRODUCTION = 'false';
+      process.env.INTUIT_CLIENT_ID = 'test_client_id';
+      process.env.INTUIT_CLIENT_SECRET = 'test_client_secret';
+      
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(false);
+      if (!isConfigError(config)) {
+        expect(config.isProduction).toBe(false);
+        expect(config.environment).toBe('sandbox');
+      }
+    });
+    
+    it('should use production mode when QUICKBOOKS_PRODUCTION is "true"', () => {
+      process.env.QUICKBOOKS_PRODUCTION = 'true';
+      process.env.INTUIT_CLIENT_ID = 'test_client_id';
+      process.env.INTUIT_CLIENT_SECRET = 'test_client_secret';
+      
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(false);
+      if (!isConfigError(config)) {
+        expect(config.isProduction).toBe(true);
+        expect(config.environment).toBe('production');
+        expect(config.tokenFilePath).toBe('tokens.json');
+      }
+    });
+    
+    it('should return error when INTUIT_CLIENT_ID is missing', () => {
+      process.env.INTUIT_CLIENT_SECRET = 'test_secret';
+      
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(true);
+      if (isConfigError(config)) {
+        expect(config.error).toBe('CONFIGURATION_ERROR');
+        expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
+        expect(config.details).toContain('INTUIT_CLIENT_ID');
+      }
+    });
+    
+    it('should return error when INTUIT_CLIENT_SECRET is missing', () => {
+      process.env.INTUIT_CLIENT_ID = 'test_client_id';
+      
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(true);
+      if (isConfigError(config)) {
+        expect(config.error).toBe('CONFIGURATION_ERROR');
+        expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
+        expect(config.details).toContain('INTUIT_CLIENT_SECRET');
+      }
+    });
+    
+    it('should return error when both credentials are missing', () => {
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(true);
+      if (isConfigError(config)) {
+        expect(config.error).toBe('CONFIGURATION_ERROR');
+        expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
+      }
+    });
+    
+    it('should include credentials in config when valid', () => {
+      process.env.INTUIT_CLIENT_ID = 'my_client_id';
+      process.env.INTUIT_CLIENT_SECRET = 'my_client_secret';
+      
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(false);
+      if (!isConfigError(config)) {
+        expect(config.clientId).toBe('my_client_id');
+        expect(config.clientSecret).toBe('my_client_secret');
+      }
+    });
+  });
+  
+  describe('isConfigError', () => {
+    it('should correctly identify error objects', () => {
+      const error = {
+        error: 'TEST_ERROR',
+        message: 'Test error message'
+      };
+      
+      expect(isConfigError(error)).toBe(true);
+    });
+    
+    it('should correctly identify valid config objects', () => {
+      const config = {
+        isProduction: false,
+        environment: 'sandbox' as const,
+        clientId: 'test',
+        clientSecret: 'test',
+        tokenFilePath: 'tokens_sandbox.json'
+      };
+      
+      expect(isConfigError(config)).toBe(false);
+    });
+  });
+  
+  describe('getOAuthUrls', () => {
+    it('should return correct OAuth URLs for sandbox', () => {
+      const urls = getOAuthUrls('sandbox');
+      
+      expect(urls.authorizationUrl).toBe('https://appcenter.intuit.com/connect/oauth2');
+      expect(urls.tokenUrl).toBe('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer');
+      expect(urls.revokeUrl).toBe('https://developer.api.intuit.com/v2/oauth2/tokens/revoke');
+    });
+    
+    it('should return correct OAuth URLs for production', () => {
+      const urls = getOAuthUrls('production');
+      
+      // OAuth URLs are the same for both environments
+      expect(urls.authorizationUrl).toBe('https://appcenter.intuit.com/connect/oauth2');
+      expect(urls.tokenUrl).toBe('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer');
+      expect(urls.revokeUrl).toBe('https://developer.api.intuit.com/v2/oauth2/tokens/revoke');
+    });
+  });
+  
+  describe('getApiBaseUrl', () => {
+    it('should return sandbox API URL for sandbox environment', () => {
+      const url = getApiBaseUrl('sandbox');
+      expect(url).toBe('https://sandbox-quickbooks.api.intuit.com');
+    });
+    
+    it('should return production API URL for production environment', () => {
+      const url = getApiBaseUrl('production');
+      expect(url).toBe('https://quickbooks.api.intuit.com');
+    });
+  });
+});

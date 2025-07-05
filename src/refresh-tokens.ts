@@ -2,19 +2,27 @@ import { config } from 'dotenv';
 import OAuthClient from 'intuit-oauth';
 import fs from 'fs/promises';
 import path from 'path';
+import { getConfig, isConfigError } from './config.js';
 
 // Load environment variables
 config();
 
 async function refreshTokens() {
   try {
+    // Get configuration
+    const configResult = getConfig();
+    if (isConfigError(configResult)) {
+      console.error('Configuration error:', configResult.message);
+      throw new Error(configResult.message);
+    }
+    
     // Initialize OAuth Client
     const oauthClient = new OAuthClient({
-      clientId: process.env.INTUIT_CLIENT_ID || '',
-      clientSecret: process.env.INTUIT_CLIENT_SECRET || '',
-      environment: 'sandbox',
+      clientId: configResult.clientId,
+      clientSecret: configResult.clientSecret,
+      environment: configResult.environment,
       redirectUri: 'http://localhost:8080/callback',
-      logging: true
+      logging: false
     });
 
     // Use the refresh token from .env.old
@@ -59,10 +67,10 @@ async function refreshTokens() {
     console.log('Token data to save:', tokenData);
 
     // Save tokens to file
-    const tokensPath = path.join(process.cwd(), 'tokens.json');
+    const tokensPath = path.join(process.cwd(), configResult.tokenFilePath);
     await fs.writeFile(tokensPath, JSON.stringify(tokenData, null, 2));
     
-    console.log('Tokens saved to tokens.json');
+    console.log(`Tokens saved to ${configResult.tokenFilePath}`);
     console.log('Access token expires in:', authResponse.expires_in, 'seconds');
     console.log('Refresh token expires in:', authResponse.x_refresh_token_expires_in, 'seconds');
     

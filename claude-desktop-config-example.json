@@ -6,7 +6,8 @@
       "cwd": "/Users/jon/Projects/quickbooks-mcp2",
       "env": {
         "INTUIT_CLIENT_ID": "ABhWqP8aITWOieKqKzXCJIWKlkeHMjIjK8hhVaSBT42biBJrax",
-        "INTUIT_CLIENT_SECRET": "lUM5oqOzu93RxouuGeTQsLcHwNiA6afjgkZBAyjv"
+        "INTUIT_CLIENT_SECRET": "lUM5oqOzu93RxouuGeTQsLcHwNiA6afjgkZBAyjv",
+        "QUICKBOOKS_PRODUCTION": "false"
       }
     }
   }

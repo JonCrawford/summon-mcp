@@ -24,7 +24,8 @@ Add this to your config file:
       "cwd": "/Users/jon/Projects/quickbooks-mcp2",
       "env": {
         "INTUIT_CLIENT_ID": "your_client_id",
-        "INTUIT_CLIENT_SECRET": "your_client_secret"
+        "INTUIT_CLIENT_SECRET": "your_client_secret",
+        "QUICKBOOKS_PRODUCTION": "false"
       }
     }
   }
@@ -45,7 +46,8 @@ If you already have other servers, add it like this:
       "cwd": "/Users/jon/Projects/quickbooks-mcp2",
       "env": {
         "INTUIT_CLIENT_ID": "your_client_id",
-        "INTUIT_CLIENT_SECRET": "your_client_secret"
+        "INTUIT_CLIENT_SECRET": "your_client_secret",
+        "QUICKBOOKS_PRODUCTION": "false"
       }
     }
   }
@@ -87,3 +89,13 @@ If it's not working:
 - **No MCP icon**: Config not loaded - check JSON syntax
 - **Tools not found**: Server didn't start - check logs
 - **Auth errors**: tokens.json missing or expired - run `npm run refresh-tokens`
+
+## Production Mode
+
+To use production mode (connects to live QuickBooks data):
+
+1. Change `QUICKBOOKS_PRODUCTION` to `"true"` in the config
+2. Restart Claude Desktop
+3. Authenticate with your production QuickBooks account
+
+Note: Production mode uses `tokens.json` while sandbox mode uses `tokens_sandbox.json`, allowing you to maintain separate authentications.
