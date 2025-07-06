@@ -81,7 +81,8 @@
       "Bash(npx @anthropic-ai/dxt info:*)",
       "Bash(dxt pack:*)",
       "Bash(git rm:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   },
