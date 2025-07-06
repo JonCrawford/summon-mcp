@@ -73,7 +73,7 @@ mcp.addResource({
       name: 'QuickBooks MCP Server',
       version: '1.0.0',
       description: 'MCP server for QuickBooks Online integration',
-      capabilities: ['tools', 'oauth']
+      capabilities: ['tools']
     }, null, 2)
   })
 });

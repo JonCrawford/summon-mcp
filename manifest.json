@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "quickbooks-mcp",
   "version": "2.0.1",
-  "description": "Multi-tenant QuickBooks Online integration via Token Broker",
+  "description": "QuickBooks Online integration for MCP",
   "author": {
     "name": "QuickBooks MCP Team"
   },
@@ -24,7 +24,7 @@
     }
   },
   "tools": [
-    { "name": "health_check", "description": "Check if the server and broker connection are healthy." },
+    { "name": "health_check", "description": "Check if the server is running." },
     { "name": "qb_list_companies", "description": "List all connected QuickBooks companies." },
     { "name": "qb_list_customers", "description": "List QuickBooks customers for a company." },
     { "name": "qb_list_invoices", "description": "List QuickBooks invoices for a company." },
@@ -37,11 +37,9 @@
     { "name": "qb_list_employees", "description": "List QuickBooks employees for a company." },
     { "name": "qb_list_transactions", "description": "List QuickBooks transactions for a company." },
     { "name": "qb_company_info", "description": "Get QuickBooks company information." },
-    { "name": "qb_report", "description": "Generate various QuickBooks reports for a company." },
-    { "name": "qb_cache_stats", "description": "Get cache statistics and performance metrics." },
-    { "name": "qb_cache_refresh", "description": "Force a full refresh of all cached data." }
+    { "name": "qb_report", "description": "Generate various QuickBooks reports for a company." }
   ],
-  "keywords": [ "quickbooks", "accounting", "invoices", "finance", "business", "broker" ],
+  "keywords": [ "quickbooks", "accounting", "invoices", "finance", "business" ],
   "compatibility": {
     "claude_desktop": ">=0.7.0",
     "platforms": ["darwin", "win32", "linux"],

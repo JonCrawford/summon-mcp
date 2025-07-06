@@ -8,11 +8,7 @@
   },
   "scripts": {
     "start": "tsx src/server.ts",
-    "start:broker": "tsx src/server-broker.ts",
-    "start:mock-broker": "node scripts/start-mock-broker.js",
-    "setup:demo": "node scripts/setup-demo-tokens.js",
     "dev": "tsx watch src/server.ts",
-    "dev:broker": "tsx watch src/server-broker.ts",
     "build": "tsc",
     "build:dxt": "npm run build && npm run package:dxt",
     "package:dxt": "dxt pack .",
@@ -20,8 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint 'src/**/*.{ts,tsx}' --fix",
-    "typecheck": "tsc --noEmit",
-    "refresh-tokens": "tsx src/refresh-tokens.ts"
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
