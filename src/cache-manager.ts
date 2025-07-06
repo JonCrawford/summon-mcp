@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import { TokenBrokerClient, Company, QuickBooksToken } from './token-broker-client.js';
 
 interface CacheEntry<T> {
@@ -45,14 +44,20 @@ export class CacheManager {
   
   constructor(brokerClient: TokenBrokerClient, config: CacheManagerConfig = {}) {
     this.brokerClient = brokerClient;
+    
+    // Use provided cacheDir or empty string (no file caching)
+    const effectiveCacheDir = config.cacheDir 
+      ? path.join(config.cacheDir, 'quickbooks-mcp-cache')
+      : '';
+    
     this.config = {
-      cacheDir: config.cacheDir || path.join(os.tmpdir(), 'quickbooks-mcp-cache'),
+      cacheDir: effectiveCacheDir,
       companyCacheTTL: config.companyCacheTTL || 24, // 24 hours default
       brokerHealthTTL: config.brokerHealthTTL || 5 // 5 minutes default
     };
     
     this.cacheDir = this.config.cacheDir;
-    this.cacheFile = path.join(this.cacheDir, 'cache.json');
+    this.cacheFile = this.cacheDir ? path.join(this.cacheDir, 'cache.json') : '';
     
     this.metrics = {
       hits: 0,
@@ -71,17 +76,61 @@ export class CacheManager {
   }
   
   private initializeCache(): void {
+    // Always start with empty cache to avoid synchronous filesystem operations
+    this.initializeEmptyCache();
+    
+    // If no cache directory, use in-memory only
+    if (!this.cacheDir) {
+      console.error('CacheManager: No cache directory provided. Using in-memory cache only.');
+      return;
+    }
+    
+    // Defer cache loading to avoid blocking initialization
+    // This prevents crashes in DXT environment
+    setImmediate(() => {
+      this.loadCacheAsync();
+    });
+  }
+  
+  private async loadCacheAsync(): Promise<void> {
     try {
-      // Ensure cache directory exists
-      if (!fs.existsSync(this.cacheDir)) {
-        fs.mkdirSync(this.cacheDir, { recursive: true });
+      // Check and create directory asynchronously
+      const dirExists = await fs.promises.access(this.cacheDir)
+        .then(() => true)
+        .catch(() => false);
+      
+      if (!dirExists) {
+        await fs.promises.mkdir(this.cacheDir, { recursive: true });
       }
       
       // Load existing cache if available
-      this.loadCache();
+      const fileExists = await fs.promises.access(this.cacheFile)
+        .then(() => true)
+        .catch(() => false);
+        
+      if (fileExists) {
+        const data = await fs.promises.readFile(this.cacheFile, 'utf-8');
+        const serialized: SerializedCache = JSON.parse(data);
+        
+        // Check cache version compatibility
+        if (serialized.version === '1.0') {
+          // Restore cache from serialized format
+          this.cache.companies = serialized.companies || null;
+          this.cache.brokerHealth = serialized.brokerHealth || null;
+          
+          // Rebuild Map from serialized tokens
+          if (serialized.tokens) {
+            Object.entries(serialized.tokens).forEach(([key, value]) => {
+              this.cache.tokens.set(key, value);
+            });
+          }
+          
+          // Clean up expired entries
+          this.cleanupExpiredEntries();
+        }
+      }
     } catch (error) {
-      console.error('Failed to initialize cache:', error);
-      this.initializeEmptyCache();
+      console.error('Failed to load cache asynchronously:', error);
     }
   }
   
@@ -93,40 +142,21 @@ export class CacheManager {
     };
   }
   
-  private loadCache(): void {
-    try {
-      if (fs.existsSync(this.cacheFile)) {
-        const data = fs.readFileSync(this.cacheFile, 'utf-8');
-        const serialized: SerializedCache = JSON.parse(data);
-        
-        // Check cache version compatibility
-        if (serialized.version !== '1.0') {
-          this.initializeEmptyCache();
-          return;
-        }
-        
-        // Restore cache from serialized format
-        this.cache.companies = serialized.companies || null;
-        this.cache.brokerHealth = serialized.brokerHealth || null;
-        
-        // Rebuild Map from serialized tokens
-        this.cache.tokens = new Map();
-        if (serialized.tokens) {
-          Object.entries(serialized.tokens).forEach(([key, value]) => {
-            this.cache.tokens.set(key, value);
-          });
-        }
-        
-        // Clean up expired entries
-        this.cleanupExpiredEntries();
-      }
-    } catch (error) {
-      console.error('Failed to load cache:', error);
-      this.initializeEmptyCache();
-    }
-  }
   
   private saveCache(): void {
+    // Skip if no cache file path
+    if (!this.cacheFile) {
+      return;
+    }
+    
+    // Use async save to avoid blocking
+    this.saveCacheAsync().catch(error => {
+      console.error('Failed to save cache:', error);
+      this.metrics.errors++;
+    });
+  }
+  
+  private async saveCacheAsync(): Promise<void> {
     try {
       // Convert Map to object for serialization
       const serialized: SerializedCache = {
@@ -136,10 +166,9 @@ export class CacheManager {
         version: '1.0'
       };
       
-      fs.writeFileSync(this.cacheFile, JSON.stringify(serialized, null, 2));
+      await fs.promises.writeFile(this.cacheFile, JSON.stringify(serialized, null, 2));
     } catch (error) {
-      console.error('Failed to save cache:', error);
-      this.metrics.errors++;
+      throw error;
     }
   }
   

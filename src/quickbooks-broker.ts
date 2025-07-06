@@ -7,6 +7,7 @@ export interface QuickBooksBrokerConfig {
   brokerApiToken: string;
   defaultCompany?: string;
   cacheTTL?: number;
+  cacheDir?: string;
 }
 
 export class QuickBooksBroker {
@@ -25,7 +26,8 @@ export class QuickBooksBroker {
     
     // Initialize cache manager
     this.cacheManager = new CacheManager(this.brokerClient, {
-      companyCacheTTL: config.cacheTTL
+      companyCacheTTL: config.cacheTTL,
+      cacheDir: config.cacheDir
     });
   }
   

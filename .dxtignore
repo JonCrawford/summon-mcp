@@ -1,0 +1,48 @@
+# Development files and directories
+tests/
+scripts/
+tasks/
+docs/
+logs/
+
+# Test files
+*.test.ts
+*.test.js
+test-*.js
+debug-*.js
+
+# Build artifacts not needed in DXT
+tsconfig.json
+vitest.config.ts
+
+# Development configs
+.claude/
+.env*
+*.log
+
+# Documentation
+*.md
+!README.md
+
+# Git and version control
+.git/
+.gitignore
+
+# Node development files
+package-lock.json
+
+# Temporary files
+temp/
+*.tmp
+
+# Token files
+tokens*.json
+!tokens.json.example
+
+# DXT artifacts
+*.dxt
+dxt-build/
+test-dxt/
+
+# Other build outputs
+repomix-output.xml

@@ -14,19 +14,19 @@ This is a QuickBooks MCP (Model Context Protocol) Server that provides read-only
 - Fixed "Method not found" errors for `resources/list` and `prompts/list` endpoints by adding minimal resource and prompt to the server. FastMCP only sets up these handlers if resources/prompts are registered, so we added a server info resource and help prompt to ensure the endpoints are available.
 - Server operates in sandbox mode by default. Set `QUICKBOOKS_PRODUCTION=true` to use production mode.
 - Token files are isolated: `tokens.json` for production, `tokens_sandbox.json` for sandbox.
+- **DXT Packaging**: MUST use `server-broker.ts` and `manifest-broker.json`. The direct OAuth server (`server.ts`) will crash in DXT because it tries to instantiate OAuth client at startup.
+- **MCP Protocol Compliance**: Server MUST NOT call `process.exit(1)` before completing the MCP handshake. The server must always be able to start and respond to the initialize request, even when unconfigured. Report configuration issues through the protocol (health_check tool, error responses) instead of exiting during startup.
+- **Async File Operations**: All file I/O (logger, cache) must use async operations with `setImmediate()` to avoid blocking startup in read-only DXT environment. Synchronous fs operations will crash the extension.
 
 ## Development Commands
 
 ### Initial Setup
 ```bash
-# Initialize project
-npm init -y
+# Install DXT CLI globally
+npm install -g @anthropic-ai/dxt
 
-# Install runtime dependencies
-npm install fastmcp dotenv intuit-oauth node-quickbooks zod
-
-# Install dev dependencies
-npm install -D typescript tsx @types/node vitest @pollyjs/core @pollyjs/adapter-node-http @pollyjs/persister-fs eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin
+# Install dependencies
+npm install
 
 # Create environment file from template
 cp .env.example .env
@@ -35,38 +35,43 @@ cp .env.example .env
 
 ### Common Commands
 ```bash
-# Start the MCP server
-npm start
+# Build TypeScript
+npm run build
 
-# Run in development mode with auto-reload
-npm run dev
+# Package as DXT (use native CLI, not custom scripts)
+dxt pack . quickbooks-mcp.dxt
+
+# Validate manifest
+dxt validate manifest.json
 
 # Run tests
 npm test
 
-# Run tests in watch mode
-npm run test:watch
-
 # Run linter
 npm run lint
-
-# Run specific test
-npx vitest run oauth.test.ts
-
-# Regenerate HTTP fixtures for tests
-VCR_MODE=record npm test
 ```
 
 ## Architecture
 
+### Two Server Implementations
+
+**Critical**: Choose the right server based on your deployment target:
+
+1. **Direct OAuth Server** (`src/server.ts`) - Local development only
+   - Instantiates OAuth client on startup
+   - Runs web server for OAuth callbacks
+   - Used by `manifest.json` and `manifest-simple.json`
+   - **Will crash if packaged as DXT**
+
+2. **Token Broker Server** (`src/server-broker.ts`) - For DXT packaging
+   - No OAuth client instantiation
+   - Pure stdio transport
+   - Used by `manifest-broker.json`
+   - Required for Claude Desktop Extensions
+
 ### Core Components
 
-1. **FastMCP Server** (`src/server.ts`)
-   - HTTP transport on configurable port (default 8080)
-   - Exposes MCP tools for QuickBooks entities
-   - Health check endpoint for verification
-
-2. **OAuth Handler** (`src/quickbooks.ts`)
+1. **OAuth Handler** (`src/quickbooks.ts`)
    - Manages OAuth 2.0 flow with Intuit
    - Persists tokens to `tokens.json`
    - Auto-refreshes expired access tokens

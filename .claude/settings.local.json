@@ -64,7 +64,22 @@
       "mcp__quickbooks-mcp__qb_list_vendors",
       "mcp__quickbooks-mcp__qb_list_items",
       "mcp__quickbooks-mcp__qb_list_estimates",
-      "mcp__quickbooks-mcp__qb_list_employees"
+      "mcp__quickbooks-mcp__qb_list_employees",
+      "Bash(git commit:*)",
+      "Bash(unzip:*)",
+      "mcp__zen__challenge",
+      "Bash(rm:*)",
+      "Bash(timeout:*)",
+      "Bash(npm run:*)",
+      "mcp__zen__debug",
+      "Bash(INTUIT_CLIENT_ID=test INTUIT_CLIENT_SECRET=test timeout 5 node dist/server.js)",
+      "Bash(INTUIT_CLIENT_ID=test INTUIT_CLIENT_SECRET=test timeout 5 node test-dxt/dist/server.js)",
+      "Bash(npx dxt:*)",
+      "Bash(cp:*)",
+      "Bash(npx @anthropic-ai/dxt pack:*)",
+      "Bash(npx @anthropic-ai/dxt validate manifest-broker.json)",
+      "Bash(npx @anthropic-ai/dxt info:*)",
+      "Bash(dxt pack:*)"
     ],
     "deny": []
   },

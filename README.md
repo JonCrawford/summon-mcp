@@ -2,6 +2,15 @@
 
 A Model Context Protocol (MCP) server that provides read-only access to QuickBooks Online data.
 
+## Architecture: Direct OAuth vs Token Broker
+
+This project supports two architectures:
+
+1. **Direct OAuth** (`src/server.ts`) - For local development with Claude Desktop config
+2. **Token Broker** (`src/server-broker.ts`) - For DXT packaging (required for Claude Desktop Extensions)
+
+⚠️ **Important**: When packaging as a DXT, you MUST use the broker architecture. The direct OAuth server will crash on startup because DXT processes cannot run web servers.
+
 ## Setup
 
 1. Install dependencies:
@@ -106,3 +115,13 @@ Note: You can maintain separate authentication for both environments.
 - `npm test` - Run tests
 - `npm run lint` - Run linter
 - `npm run typecheck` - Type check
+
+## Building DXT Package
+
+```bash
+# Build and package as DXT (uses broker architecture)
+npm run build:dxt
+
+# This creates quickbooks-mcp.dxt using manifest-broker.json
+# The package uses server-broker.js which requires external token broker
+```

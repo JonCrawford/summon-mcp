@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
 import fs from 'fs';
@@ -50,6 +49,9 @@ const mcp = new FastMCP({
   version: '1.0.0'
 });
 
+// Add debug logging for FastMCP events
+console.error('FastMCP instance created');
+
 // Add health check tool
 mcp.addTool({
   name: 'health_check',
@@ -90,16 +92,48 @@ try {
   log('QuickBooks tools registered successfully');
 } catch (error) {
   logError('Failed to register QuickBooks tools', error);
+  console.error('Failed to register QuickBooks tools:', error);
+  process.exit(1);
 }
 
 log('Starting MCP server with stdio transport...');
+
+// Add process handlers for debugging
+process.on('uncaughtException', (error) => {
+  logError('Uncaught exception', error);
+  console.error('Uncaught exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logError('Unhandled rejection', { reason, promise });
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+// Add SIGTERM and SIGINT handlers
+process.on('SIGTERM', () => {
+  log('Received SIGTERM signal');
+  console.error('Received SIGTERM signal');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  log('Received SIGINT signal');
+  console.error('Received SIGINT signal');
+  process.exit(0);
+});
 
 // Start server with stdio
 mcp.start({
   transportType: 'stdio'
 }).then(() => {
   log('MCP server started successfully');
+  console.error('MCP server started successfully on stdio transport');
+  // The process will now be kept alive by fastmcp.
+  // DO NOT add any process.stdin handlers here.
 }).catch((error) => {
   logError('Failed to start MCP server', error);
+  console.error('Failed to start MCP server:', error);
   process.exit(1);
 });

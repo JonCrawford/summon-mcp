@@ -1,10 +1,11 @@
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
 import { entities } from './entities.js';
-import { getQBOClient } from '../quickbooks.js';
+import { getQBOClient, listCompanies } from '../quickbooks.js';
 
 // Common parameters for all QuickBooks list tools
 const listParametersSchema = z.object({
+  companyName: z.string().optional().describe('The name of the QuickBooks company to query'),
   startDate: z.string().optional().describe('Start date for filtering (ISO format)'),
   endDate: z.string().optional().describe('End date for filtering (ISO format)'),
   limit: z.number().default(20).describe('Maximum number of results to return')
@@ -35,6 +36,21 @@ const reportTypes = {
  * @param mcp - The FastMCP instance
  */
 export function registerQuickBooksTools(mcp: FastMCP): void {
+
+  mcp.addTool({
+      name: 'qb_list_companies',
+      description: 'List all available QuickBooks companies',
+      parameters: z.object({}),
+      execute: async () => {
+          const companies = listCompanies();
+          return {
+              content: [{
+                  type: 'text',
+                  text: JSON.stringify(companies, null, 2)
+              }]
+          };
+      }
+  });
   // Register a tool for each entity
   entities.forEach(entity => {
     mcp.addTool({
@@ -44,7 +60,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
       execute: async (args) => {
         try {
           // Get authenticated QuickBooks client
-          const qbo = await getQBOClient();
+          const qbo = await getQBOClient(args.companyName);
           
           // Build query parameters
           const queryParams: any = {
@@ -79,9 +95,10 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
                 } else if (err.statusCode === 429) {
                   reject(new Error('Rate limit exceeded. Please try again later.'));
                 } else {
-                  reject(new Error(`Failed to fetch ${entity.name}s: ${err.message || err}`));
+                  reject(new Error(`Failed to fetch ${entity.name}s: ${err.message || JSON.stringify(err)}`));
                 }
-              } else {
+              }
+              else {
                 // Return the data as JSON string for MCP
                 resolve({
                   content: [{
@@ -92,7 +109,8 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
               }
             });
           });
-        } catch (error) {
+        }
+        catch (error) {
           // Handle errors that occur before the SDK call
           if (error instanceof Error) {
             throw error;
@@ -107,29 +125,20 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
   mcp.addTool({
     name: 'qb_company_info',
     description: 'Get QuickBooks company information',
-    parameters: z.object({}),
-    execute: async () => {
+    parameters: z.object({
+        companyName: z.string().optional().describe('The name of the QuickBooks company to query')
+    }),
+    execute: async (args) => {
       try {
-        const qbo = await getQBOClient();
+        const qbo = await getQBOClient(args.companyName);
         
         return new Promise((resolve, reject) => {
           // QuickBooks CompanyInfo typically has ID of 1
-          (qbo as any).getCompanyInfo(1, (err: any, data: any) => {
+          (qbo as any).getCompanyInfo(qbo.realmId, (err: any, data: any) => {
             if (err) {
-              // Try findCompanyInfos if direct lookup fails
-              (qbo as any).findCompanyInfos((err2: any, data2: any) => {
-                if (err2) {
-                  reject(new Error(`Failed to fetch company info: ${err.message || err}`));
-                } else {
-                  resolve({
-                    content: [{
-                      type: 'text',
-                      text: JSON.stringify(data2, null, 2)
-                    }]
-                  });
-                }
-              });
-            } else {
+                  reject(new Error(`Failed to fetch company info: ${err.message || JSON.stringify(err)}`));
+            }
+            else {
               resolve({
                 content: [{
                   type: 'text',
@@ -139,7 +148,8 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
             }
           });
         });
-      } catch (error) {
+      }
+      catch (error) {
         if (error instanceof Error) {
           throw error;
         }
@@ -153,6 +163,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
     name: 'qb_report',
     description: 'Generate various QuickBooks reports',
     parameters: z.object({
+      companyName: z.string().optional().describe('The name of the QuickBooks company to query'),
       reportType: z.enum(Object.keys(reportTypes) as [string, ...string[]]).describe('Type of report to generate'),
       startDate: z.string().describe('Start date for the report (ISO format)'),
       endDate: z.string().describe('End date for the report (ISO format)'),
@@ -161,7 +172,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
     }),
     execute: async (args) => {
       try {
-        const qbo = await getQBOClient();
+        const qbo = await getQBOClient(args.companyName);
         
         // Get the SDK method name
         const sdkMethodName = reportTypes[args.reportType as keyof typeof reportTypes];
@@ -195,7 +206,8 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
               } else {
                 reject(new Error(`Failed to generate ${args.reportType} report: ${err.message || err}`));
               }
-            } else {
+            }
+            else {
               resolve({
                 content: [{
                   type: 'text',
@@ -205,7 +217,8 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
             }
           });
         });
-      } catch (error) {
+      }
+      catch (error) {
         if (error instanceof Error) {
           throw error;
         }

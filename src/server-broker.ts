@@ -1,17 +1,13 @@
-import 'dotenv/config';
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
 import { QuickBooksBroker } from './quickbooks-broker.js';
 import { registerQuickBooksToolsWithBroker } from './tools/index-broker.js';
+import { initializeLogger, logger } from './logger.js';
 
-// Debug logging to stderr (visible in Claude Desktop logs)
-const debug = (message: string) => {
-  if (process.env.enableDebugLogging === 'true') {
-    console.error(`[QuickBooks MCP] ${new Date().toISOString()} - ${message}`);
-  }
-};
+// Initialize logger
+initializeLogger(process.env.LOG_FILE_PATH);
 
-debug('Starting QuickBooks MCP Server with broker architecture...');
+logger.debug('Starting QuickBooks MCP Server with broker architecture...');
 
 // Get configuration from environment (injected by DXT)
 const config = {
@@ -19,16 +15,17 @@ const config = {
   brokerApiToken: process.env.brokerApiToken || '',
   defaultCompany: process.env.defaultCompany,
   cacheTTL: process.env.cacheTTL ? parseInt(process.env.cacheTTL) : 24,
-  enableDebugLogging: process.env.enableDebugLogging === 'true'
+  cacheDir: process.env.CACHE_DIR
 };
 
-// Validate required configuration
-if (!config.brokerApiUrl || !config.brokerApiToken) {
-  console.error('[QuickBooks MCP] ERROR: Missing required configuration. Please configure brokerApiUrl and brokerApiToken.');
-  process.exit(1);
+// Check if config is missing
+const isConfigured = config.brokerApiUrl && config.brokerApiToken;
+
+if (!isConfigured) {
+  logger.warn('Broker URL or Token is not configured. Server will start but tools will return an error.');
 }
 
-debug(`Configuration loaded: brokerApiUrl=${config.brokerApiUrl}, defaultCompany=${config.defaultCompany || 'none'}, cacheTTL=${config.cacheTTL}h`);
+logger.debug(`Configuration loaded: brokerApiUrl=${config.brokerApiUrl}, defaultCompany=${config.defaultCompany || 'none'}, cacheTTL=${config.cacheTTL}h, cacheDir=${config.cacheDir || 'none'}`);
 
 // Initialize FastMCP server
 const mcp = new FastMCP({
@@ -36,17 +33,26 @@ const mcp = new FastMCP({
   version: '2.0.0'
 });
 
-// Add health check tool
+// Update health_check to be more informative
 mcp.addTool({
   name: 'health_check',
   description: 'Check if the QuickBooks MCP server is running and broker is accessible',
   parameters: z.object({}),
   execute: async () => {
+    if (!isConfigured) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            status: 'unconfigured',
+            message: 'Broker URL and API Token are not set. Please configure the extension.'
+          }, null, 2)
+        }]
+      };
+    }
     try {
-      // Create temporary broker instance for health check
       const broker = new QuickBooksBroker(config);
       const brokerHealthy = await broker.checkBrokerHealth();
-      
       return {
         content: [{
           type: 'text',
@@ -138,29 +144,44 @@ Start by using qb_list_companies to see available companies.
 `
 });
 
-// Initialize QuickBooks broker
-try {
-  debug('Initializing QuickBooks broker...');
-  const broker = new QuickBooksBroker(config);
-  
-  // Register all QuickBooks tools
-  debug('Registering QuickBooks tools...');
-  registerQuickBooksToolsWithBroker(mcp, broker);
-  
-  debug('All tools registered successfully');
-} catch (error) {
-  console.error('[QuickBooks MCP] ERROR: Failed to initialize broker:', error);
-  process.exit(1);
+// Only register the main tools if the server is configured.
+// This prevents further errors down the line.
+if (isConfigured) {
+  try {
+    logger.debug('Initializing QuickBooks broker...');
+    const broker = new QuickBooksBroker(config);
+    
+    logger.debug('Registering QuickBooks tools...');
+    registerQuickBooksToolsWithBroker(mcp, broker);
+    
+    logger.debug('All tools registered successfully');
+  } catch (error) {
+    logger.error('Failed to initialize broker', error);
+    // Don't exit, let the health_check tool report the error.
+  }
+} else {
+  // Add a tool to guide the user if not configured
+  mcp.addTool({
+    name: "configure_extension_help",
+    description: "Get help on how to configure the QuickBooks extension.",
+    parameters: z.object({}),
+    execute: async () => ({
+      content: [{
+        type: 'text',
+        text: "The QuickBooks extension is not configured. Please go to the Extensions page in Claude Desktop, find the QuickBooks extension, and enter your Broker URL and Broker API Token."
+      }]
+    })
+  });
 }
 
 // Start server with stdio transport
-debug('Starting MCP server with stdio transport...');
+logger.debug('Starting MCP server with stdio transport...');
 
 mcp.start({
   transportType: 'stdio'
 }).then(() => {
-  debug('MCP server started successfully');
+  logger.debug('MCP server started successfully');
 }).catch((error) => {
-  console.error('[QuickBooks MCP] ERROR: Failed to start MCP server:', error);
+  logger.error('Failed to start MCP server', error);
   process.exit(1);
 });

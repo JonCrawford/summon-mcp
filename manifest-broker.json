@@ -1,0 +1,89 @@
+{
+  "dxt_version": "0.1",
+  "name": "quickbooks-mcp",
+  "version": "2.0.1",
+  "description": "Multi-tenant QuickBooks Online integration via Token Broker",
+  "author": {
+    "name": "QuickBooks MCP Team"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/server-broker.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/server-broker.js"],
+      "env": {
+        "brokerApiUrl": "${user_config.brokerUrl}",
+        "brokerApiToken": "${user_config.brokerToken}",
+        "defaultCompany": "${user_config.defaultCompany}",
+        "enableDebugLogging": "${user_config.debug}",
+        "CACHE_DIR": "${user_config.cacheDir}",
+        "LOG_FILE_PATH": "${user_config.logFilePath}"
+      }
+    }
+  },
+  "user_config": {
+    "brokerUrl": {
+      "type": "string",
+      "title": "Token Broker URL",
+      "description": "The URL of your QuickBooks Token Broker service.",
+      "required": true
+    },
+    "brokerToken": {
+      "type": "string",
+      "title": "Broker API Token",
+      "description": "Your secret API token for the broker service.",
+      "required": true,
+      "sensitive": true
+    },
+    "defaultCompany": {
+      "type": "string",
+      "title": "Default Company Name (Optional)",
+      "description": "The default QuickBooks company to use if none is specified in a query.",
+      "required": false
+    },
+    "debug": {
+      "type": "boolean",
+      "title": "Enable Debug Logging",
+      "description": "Outputs detailed logs to the Claude Desktop developer console.",
+      "default": false
+    },
+    "cacheDir": {
+      "type": "string",
+      "title": "Cache Directory (Optional)",
+      "description": "Directory for caching QuickBooks data. Leave empty to use in-memory cache only.",
+      "required": false
+    },
+    "logFilePath": {
+      "type": "string",
+      "title": "Log File Path (Optional)",
+      "description": "Path for the extension's log file for debugging.",
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "health_check", "description": "Check if the server and broker connection are healthy." },
+    { "name": "qb_list_companies", "description": "List all connected QuickBooks companies." },
+    { "name": "qb_list_customers", "description": "List QuickBooks customers for a company." },
+    { "name": "qb_list_invoices", "description": "List QuickBooks invoices for a company." },
+    { "name": "qb_list_payments", "description": "List QuickBooks payments for a company." },
+    { "name": "qb_list_vendors", "description": "List QuickBooks vendors for a company." },
+    { "name": "qb_list_items", "description": "List QuickBooks items (products/services) for a company." },
+    { "name": "qb_list_accounts", "description": "List QuickBooks chart of accounts for a company." },
+    { "name": "qb_list_bills", "description": "List QuickBooks bills for a company." },
+    { "name": "qb_list_estimates", "description": "List QuickBooks estimates for a company." },
+    { "name": "qb_list_employees", "description": "List QuickBooks employees for a company." },
+    { "name": "qb_list_transactions", "description": "List QuickBooks transactions for a company." },
+    { "name": "qb_company_info", "description": "Get QuickBooks company information." },
+    { "name": "qb_report", "description": "Generate various QuickBooks reports for a company." },
+    { "name": "qb_cache_stats", "description": "Get cache statistics and performance metrics." },
+    { "name": "qb_cache_refresh", "description": "Force a full refresh of all cached data." }
+  ],
+  "keywords": [ "quickbooks", "accounting", "invoices", "finance", "business", "broker" ],
+  "compatibility": {
+    "claude_desktop": ">=0.7.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=18.0.0" }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "dxt_version": "0.1",
+  "name": "quickbooks-mcp",
+  "version": "1.0.0",
+  "description": "QuickBooks Online integration for Claude Desktop",
+  "author": {
+    "name": "QuickBooks MCP Team"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/server.js"],
+      "env": {
+        "INTUIT_CLIENT_ID": "${user_config.clientId}",
+        "INTUIT_CLIENT_SECRET": "${user_config.clientSecret}",
+        "QUICKBOOKS_PRODUCTION": "${user_config.production}"
+      }
+    }
+  },
+  "user_config": {
+    "clientId": {
+      "type": "string",
+      "title": "QuickBooks Client ID",
+      "description": "Your QuickBooks app's Client ID",
+      "required": true,
+      "sensitive": true
+    },
+    "clientSecret": {
+      "type": "string",
+      "title": "QuickBooks Client Secret",
+      "description": "Your QuickBooks app's Client Secret",
+      "required": true,
+      "sensitive": true
+    },
+    "production": {
+      "type": "boolean",
+      "title": "Use Production",
+      "description": "Use production QuickBooks API (unchecked = sandbox)",
+      "default": false
+    }
+  },
+  "tools": [
+    { "name": "health_check", "description": "Check if the server is running" },
+    { "name": "qb_list_customers", "description": "List QuickBooks customers" },
+    { "name": "qb_list_invoices", "description": "List QuickBooks invoices" },
+    { "name": "qb_list_payments", "description": "List QuickBooks payments" },
+    { "name": "qb_list_vendors", "description": "List QuickBooks vendors" },
+    { "name": "qb_list_items", "description": "List QuickBooks items (products/services)" },
+    { "name": "qb_list_accounts", "description": "List QuickBooks chart of accounts" },
+    { "name": "qb_list_bills", "description": "List QuickBooks bills" },
+    { "name": "qb_list_estimates", "description": "List QuickBooks estimates" },
+    { "name": "qb_list_employees", "description": "List QuickBooks employees" },
+    { "name": "qb_list_transactions", "description": "List QuickBooks transactions" },
+    { "name": "qb_company_info", "description": "Get QuickBooks company information" },
+    { "name": "qb_report", "description": "Generate various QuickBooks reports" },
+    { "name": "qb_generate_oauth_url", "description": "Generate QuickBooks OAuth URL for authentication" },
+    { "name": "qb_complete_oauth", "description": "Complete QuickBooks OAuth flow with callback URL" }
+  ],
+  "keywords": [
+    "quickbooks",
+    "accounting",
+    "invoices",
+    "finance",
+    "business"
+  ],
+  "compatibility": {
+    "claude_desktop": ">=0.7.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

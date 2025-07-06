@@ -1,192 +1,125 @@
 import OAuthClient from 'intuit-oauth';
-import fs from 'fs/promises';
-import path from 'path';
 import QuickBooks from 'node-quickbooks';
-import { getConfig, isConfigError, type QuickBooksConfig, type ConfigError } from './config.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Lazy configuration loading
-let _configResult: QuickBooksConfig | ConfigError | null = null;
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-/**
- * Lazily loads and caches the configuration
- */
-function getCachedConfig(): QuickBooksConfig | ConfigError {
-  if (!_configResult) {
-    _configResult = getConfig();
-  }
-  return _configResult;
-}
-
-/**
- * Resets the cached configuration (for testing purposes)
- * @internal
- */
-export function __resetConfigCacheForTests(): void {
-  _configResult = null;
-  oauthClient = null; // Also reset the OAuth client
-}
-
-// Token storage path - determined by config
-const getTokensPath = () => {
-  const configResult = getCachedConfig();
-  if (isConfigError(configResult)) {
-    // Fallback to sandbox tokens if config error
-    return path.join(process.cwd(), 'tokens_sandbox.json');
-  }
-  return path.join(process.cwd(), configResult.tokenFilePath);
+// Simple file logger for debugging
+const logFile = path.resolve(__dirname, '../quickbooks-debug.log');
+const debugLog = (message: string) => {
+  const timestamp = new Date().toISOString();
+  fs.appendFileSync(logFile, `[${timestamp}] ${message}\n`);
 };
 
-// Export for backward compatibility - this needs to be a getter
-export const TOKENS_PATH = getTokensPath();
+// --- START MULTI-TENANT CONFIGURATION ---
 
-// Lazy initialization of OAuth Client
-let oauthClient: OAuthClient | null = null;
+interface TenantConfig {
+  clientId: string;
+  clientSecret: string;
+  realmId: string;
+  refreshToken: string;
+  accessToken: string;
+  tokenExpiry: number; // Store as timestamp
+}
 
-function getOAuthClient(): OAuthClient {
-  if (!oauthClient) {
-    const configResult = getCachedConfig();
-    
-    // Check if we have valid configuration
-    if (isConfigError(configResult)) {
-      throw new Error(configResult.message);
+const tenants: Record<string, TenantConfig> = {
+  '2nd-in-Command Academy, LLC': {
+    clientId: 'ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8',
+    clientSecret: 'BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx',
+    realmId: '9341454914780836',
+    refreshToken: 'RT1-8-H0-1760504689krilm06wlt8ep98lsqok',
+    accessToken: '', // Will be populated on first use
+    tokenExpiry: 0,
+  },
+  'Revive Roof LLC': {
+    clientId: 'ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8',
+    clientSecret: 'BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx',
+    realmId: '9341454254881495',
+    refreshToken: 'RT1-232-H0-17605049005taiixj6agnyyh8s1q8q',
+    accessToken: '', // Will be populated on first use
+    tokenExpiry: 0,
+  },
+};
+
+const IS_PRODUCTION = true; // Using production tokens
+
+// --- END MULTI-TENANT CONFIGURATION ---
+
+function getOAuthClient(companyName: string): OAuthClient {
+    const tenant = tenants[companyName];
+    if (!tenant) {
+        throw new Error(`Company '${companyName}' not configured.`);
     }
-    
-    const config = configResult as QuickBooksConfig;
-    
-    oauthClient = new OAuthClient({
-      clientId: config.clientId,
-      clientSecret: config.clientSecret,
-      environment: config.environment,
-      redirectUri: 'http://localhost:8080/callback',
-      logging: false // Disable logging for Claude Desktop (read-only environment)
+
+    return new OAuthClient({
+      clientId: tenant.clientId,
+      clientSecret: tenant.clientSecret,
+      environment: IS_PRODUCTION ? 'production' : 'sandbox',
+      redirectUri: 'http://localhost:3000/callback',
+      logging: false
     });
-  }
-  return oauthClient;
 }
 
-/**
- * Generate the authorization URL for OAuth flow
- * @returns The Intuit authorization URL
- */
-export function getAuthorizeUrl(): string {
-  const authUri = getOAuthClient().authorizeUri({
-    scope: [
-      OAuthClient.scopes.Accounting,
-      OAuthClient.scopes.OpenId
-    ],
-    state: 'quickbooks-mcp-' + Date.now() // Add state for CSRF protection
-  });
-  
-  return authUri;
-}
-
-/**
- * Handle OAuth callback and exchange code for tokens
- * @param url The full callback URL with query parameters
- * @returns The token data
- */
-export async function handleCallback(url: string): Promise<any> {
-  try {
-    // Parse the authorization code from the callback URL
-    const urlObj = new URL(url);
-    const code = urlObj.searchParams.get('code');
-    const realmId = urlObj.searchParams.get('realmId'); // Company ID
-    
-    if (!code) {
-      throw new Error('No authorization code found in callback URL');
-    }
-    
-    // Exchange the authorization code for tokens
-    const authResponse = await getOAuthClient().createToken(url);
-    
-    // Prepare token data to save
-    const tokenData = {
-      access_token: authResponse.access_token,
-      refresh_token: authResponse.refresh_token,
-      expires_at: Date.now() + (authResponse.expires_in * 1000), // Convert to timestamp
-      x_refresh_token_expires_at: Date.now() + (authResponse.x_refresh_token_expires_in * 1000),
-      realm_id: realmId,
-      created_at: Date.now()
-    };
-    
-    // Save tokens to file
-    await fs.writeFile(getTokensPath(), JSON.stringify(tokenData, null, 2));
-    
-    // Set tokens on the client for immediate use
-    getOAuthClient().setToken(authResponse);
-    
-    return tokenData;
-  } catch (error) {
-    console.error('Error handling OAuth callback:', error);
-    throw error;
-  }
-}
 
 /**
  * Get an authenticated QuickBooks client instance
  * @returns Authenticated QuickBooks client
  */
-export async function getQBOClient(): Promise<QuickBooks> {
+export async function getQBOClient(companyName?: string): Promise<QuickBooks> {
   try {
-    // Check if tokens file exists
-    try {
-      await fs.access(getTokensPath());
-    } catch {
-      throw new Error('No tokens found. Please connect to QuickBooks first by visiting /connect');
+    const tenantName = companyName || Object.keys(tenants)[0];
+    if (!tenantName || !tenants[tenantName]) {
+        throw new Error(`Company '${tenantName}' not configured or no default company available.`);
     }
-    
-    // Load tokens from file
-    const tokenData = JSON.parse(await fs.readFile(getTokensPath(), 'utf-8'));
+
+    const tenant = tenants[tenantName];
     
     // Check if access token is expired
     const now = Date.now();
-    const isExpired = tokenData.expires_at <= now;
+    const isExpired = tenant.tokenExpiry <= now;
     
     if (isExpired) {
-      // Check if refresh token is still valid
-      if (tokenData.x_refresh_token_expires_at <= now) {
-        throw new Error('Refresh token expired. Please reconnect to QuickBooks by visiting /connect');
+      debugLog(`Token expired for ${tenantName}, refreshing...`);
+      try {
+        const client = getOAuthClient(tenantName);
+        const refreshResponse = await client.refreshUsingToken(tenant.refreshToken);
+        
+        // Don't log the full refresh response as it may contain circular references
+        // Just log that we refreshed successfully
+        // Log the keys of the refresh response to understand its structure
+        debugLog(`Refresh response keys: ${Object.keys(refreshResponse).join(', ')}`);
+        
+        // The intuit-oauth library returns the token data in a different structure
+        const tokenData = (refreshResponse as any).token || (refreshResponse as any).json || refreshResponse;
+        debugLog(`Token data keys: ${Object.keys(tokenData).join(', ')}`);
+        debugLog(`Access token from tokenData: ${tokenData.access_token?.substring(0, 20)}...`);
+        
+        tenant.accessToken = tokenData.access_token;
+        tenant.tokenExpiry = Date.now() + (tokenData.expires_in * 1000);
+        debugLog(`Set token for ${tenantName}, new token length: ${tenant.accessToken?.length || 0}`);
+      } catch (refreshError) {
+        debugLog(`Failed to refresh token for ${tenantName}: ${refreshError instanceof Error ? refreshError.message : JSON.stringify(refreshError)}`);
+        throw new Error(`Token refresh failed: ${refreshError instanceof Error ? refreshError.message : 'Unknown error'}`);
       }
-      
-      // Refresh the access token
-      getOAuthClient().setToken({
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token
-      });
-      
-      const refreshResponse = await getOAuthClient().refreshUsingToken(tokenData.refresh_token);
-      
-      // Update token data
-      tokenData.access_token = refreshResponse.access_token;
-      tokenData.refresh_token = refreshResponse.refresh_token;
-      tokenData.expires_at = Date.now() + (refreshResponse.expires_in * 1000);
-      tokenData.x_refresh_token_expires_at = Date.now() + (refreshResponse.x_refresh_token_expires_in * 1000);
-      
-      // Save updated tokens
-      await fs.writeFile(getTokensPath(), JSON.stringify(tokenData, null, 2));
     }
-    
-    const configResult = getCachedConfig();
-    
-    // Check if we have valid configuration
-    if (isConfigError(configResult)) {
-      throw new Error(configResult.message);
-    }
-    
-    const config = configResult as QuickBooksConfig;
     
     // Create and return QuickBooks client
+    debugLog(`Creating QB client for ${tenantName} with token length: ${tenant.accessToken?.length || 0}`);
     const qbo = new QuickBooks(
-      config.clientId,
-      config.clientSecret,
-      tokenData.access_token,
+      tenant.clientId,
+      tenant.clientSecret,
+      tenant.accessToken,
       false, // No token secret for OAuth 2.0
-      tokenData.realm_id,
-      !config.isProduction, // Use sandbox = true when NOT in production
+      tenant.realmId,
+      !IS_PRODUCTION, // Use sandbox = true when NOT in production
       false, // Disable debug - must be false for MCP stdio transport
       null, // Minor version
       '2.0', // OAuth version
-      tokenData.refresh_token
+      tenant.refreshToken
     );
     
     return qbo;
@@ -196,4 +129,6 @@ export async function getQBOClient(): Promise<QuickBooks> {
   }
 }
 
-export { getOAuthClient };
+export function listCompanies(): string[] {
+    return Object.keys(tenants);
+}
