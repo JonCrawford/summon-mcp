@@ -1,7 +1,8 @@
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
 import { entities } from './entities.js';
-import { getQBOClient, listCompanies } from '../quickbooks.js';
+import { getQBOClient, listCompanies } from '../quickbooks-broker.js';
+import { withAuth } from './auth-wrapper.js';
 
 // Common parameters for all QuickBooks list tools
 const listParametersSchema = z.object({
@@ -41,15 +42,15 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
       name: 'qb_list_companies',
       description: 'List all available QuickBooks companies',
       parameters: z.object({}),
-      execute: async () => {
-          const companies = listCompanies();
+      execute: withAuth(async () => {
+          const companies = await listCompanies();
           return {
               content: [{
                   type: 'text',
                   text: JSON.stringify(companies, null, 2)
               }]
           };
-      }
+      })
   });
   // Register a tool for each entity
   entities.forEach(entity => {
@@ -57,10 +58,10 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
       name: `qb_list_${entity.name}s`,
       description: entity.description,
       parameters: listParametersSchema,
-      execute: async (args) => {
+      execute: withAuth(async (args) => {
         try {
           // Get authenticated QuickBooks client
-          const qbo = await getQBOClient(args.companyName);
+          const qbo = await getQBOClient();
           
           // Build query parameters
           const queryParams: any = {
@@ -117,7 +118,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
           }
           throw new Error(`Failed to execute ${entity.name} query: ${error}`);
         }
-      }
+      })
     });
   });
   
@@ -128,9 +129,9 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
     parameters: z.object({
         companyName: z.string().optional().describe('The name of the QuickBooks company to query')
     }),
-    execute: async (args) => {
+    execute: withAuth(async (_args) => {
       try {
-        const qbo = await getQBOClient(args.companyName);
+        const qbo = await getQBOClient();
         
         return new Promise((resolve, reject) => {
           // QuickBooks CompanyInfo typically has ID of 1
@@ -155,7 +156,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
         }
         throw new Error(`Failed to get company info: ${error}`);
       }
-    }
+    })
   });
   
   // Register the unified report tool
@@ -170,9 +171,9 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
       summarizeBy: z.enum(['Total', 'Month', 'Week', 'Days']).optional().describe('How to summarize the report (for P&L and similar reports)'),
       accountingMethod: z.enum(['Cash', 'Accrual']).optional().describe('Accounting method for the report')
     }),
-    execute: async (args) => {
+    execute: withAuth(async (args) => {
       try {
-        const qbo = await getQBOClient(args.companyName);
+        const qbo = await getQBOClient();
         
         // Get the SDK method name
         const sdkMethodName = reportTypes[args.reportType as keyof typeof reportTypes];
@@ -224,6 +225,6 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
         }
         throw new Error(`Failed to generate report: ${error}`);
       }
-    }
+    })
   });
 }

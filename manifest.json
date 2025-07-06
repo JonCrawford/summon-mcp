@@ -12,7 +12,12 @@
     "entry_point": "dist/server.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/dist/server.js"]
+      "args": ["${__dirname}/dist/server.js"],
+      "env": {
+        "QB_CLIENT_ID": "${user_config.qb_client_id}",
+        "QB_CLIENT_SECRET": "${user_config.qb_client_secret}",
+        "QB_REFRESH_TOKEN": "${user_config.qb_refresh_token}"
+      }
     }
   },
   "user_config": {
@@ -21,6 +26,27 @@
       "title": "Enable Debug Logging",
       "description": "Outputs detailed logs to the Claude Desktop developer console.",
       "default": false
+    },
+    "qb_client_id": {
+      "type": "string",
+      "title": "QuickBooks Client ID",
+      "description": "Your QuickBooks OAuth application client ID from developer.intuit.com",
+      "sensitive": true,
+      "required": true
+    },
+    "qb_client_secret": {
+      "type": "string",
+      "title": "QuickBooks Client Secret",
+      "description": "Your QuickBooks OAuth application client secret",
+      "sensitive": true,
+      "required": true
+    },
+    "qb_refresh_token": {
+      "type": "string",
+      "title": "QuickBooks Refresh Token",
+      "description": "OAuth refresh token (automatically managed after first authentication)",
+      "sensitive": true,
+      "required": false
     }
   },
   "tools": [
