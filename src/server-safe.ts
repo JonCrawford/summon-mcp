@@ -12,12 +12,8 @@ const __dirname = path.dirname(__filename);
 // --- Add file-based logging setup ---
 const logFilePath = path.resolve(__dirname, '../mcp-server.log');
 // Clear log file on start for clean debugging
-try {
-  if (fs.existsSync(logFilePath)) {
-    fs.unlinkSync(logFilePath);
-  }
-} catch (error) {
-  // Ignore if file doesn't exist or can't be removed
+if (fs.existsSync(logFilePath)) {
+  fs.unlinkSync(logFilePath);
 }
 const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
 
@@ -56,12 +52,25 @@ const mcp = new FastMCP({
 // Add debug logging for FastMCP events
 console.error('FastMCP instance created');
 
+// Track server state
+let serverStarted = false;
+let toolsRegistrationError: Error | null = null;
+
 // Add health check tool
 mcp.addTool({
   name: 'health_check',
   description: 'Check if the server is running',
   parameters: z.object({}),
   execute: async () => {
+    // Include any initialization errors in health check
+    if (toolsRegistrationError) {
+      return { 
+        content: [{ 
+          type: 'text', 
+          text: `Server is running but with initialization errors: ${toolsRegistrationError.message}` 
+        }] 
+      };
+    }
     return { content: [{ type: 'text', text: 'OK' }] };
   }
 });
@@ -77,7 +86,8 @@ mcp.addResource({
       name: 'QuickBooks MCP Server',
       version: '1.0.0',
       description: 'MCP server for QuickBooks Online integration',
-      capabilities: ['tools']
+      capabilities: ['tools'],
+      initializationErrors: toolsRegistrationError ? toolsRegistrationError.message : null
     }, null, 2)
   })
 });
@@ -89,33 +99,51 @@ mcp.addPrompt({
   load: async () => 'I can help you query QuickBooks Online data. Available tools include listing customers, invoices, payments, and generating reports. Use the health_check tool to verify server status.'
 });
 
-// Register all QuickBooks tools
+// Register all QuickBooks tools - but don't exit on failure
 log('Registering QuickBooks tools...');
 try {
   registerQuickBooksTools(mcp);
   log('QuickBooks tools registered successfully');
 } catch (error) {
+  // Store the error but continue server startup
+  toolsRegistrationError = error as Error;
   logError('Failed to register QuickBooks tools', error);
   console.error('Failed to register QuickBooks tools:', error);
-  process.exit(1);
+  // Do NOT exit - let the server start and report the error through the protocol
 }
 
 log('Starting MCP server with stdio transport...');
 
-// Add process handlers for debugging
+// Add process handlers for debugging - but delay exit until after handshake
 process.on('uncaughtException', (error) => {
   logError('Uncaught exception', error);
   console.error('Uncaught exception:', error);
-  process.exit(1);
+  
+  // If server hasn't started yet, wait a bit to allow handshake
+  if (!serverStarted) {
+    setTimeout(() => {
+      process.exit(1);
+    }, 5000); // Give 5 seconds for handshake to complete
+  } else {
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   logError('Unhandled rejection', { reason, promise });
   console.error('Unhandled rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  
+  // If server hasn't started yet, wait a bit to allow handshake
+  if (!serverStarted) {
+    setTimeout(() => {
+      process.exit(1);
+    }, 5000); // Give 5 seconds for handshake to complete
+  } else {
+    process.exit(1);
+  }
 });
 
-// Add SIGTERM and SIGINT handlers
+// Add SIGTERM and SIGINT handlers - these are fine as they're for graceful shutdown
 process.on('SIGTERM', () => {
   log('Received SIGTERM signal');
   console.error('Received SIGTERM signal');
@@ -132,6 +160,7 @@ process.on('SIGINT', () => {
 mcp.start({
   transportType: 'stdio'
 }).then(() => {
+  serverStarted = true;
   log('MCP server started successfully');
   console.error('MCP server started successfully on stdio transport');
   // The process will now be kept alive by fastmcp.
@@ -139,5 +168,8 @@ mcp.start({
 }).catch((error) => {
   logError('Failed to start MCP server', error);
   console.error('Failed to start MCP server:', error);
-  process.exit(1);
+  // Even on start failure, wait a bit to send error response
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
 });

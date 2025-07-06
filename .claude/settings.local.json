@@ -79,7 +79,9 @@
       "Bash(npx @anthropic-ai/dxt pack:*)",
       "Bash(npx @anthropic-ai/dxt validate manifest-broker.json)",
       "Bash(npx @anthropic-ai/dxt info:*)",
-      "Bash(dxt pack:*)"
+      "Bash(dxt pack:*)",
+      "Bash(git rm:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   },

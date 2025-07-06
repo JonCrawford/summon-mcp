@@ -12,12 +12,8 @@ const __dirname = path.dirname(__filename);
 // --- Add file-based logging setup ---
 const logFilePath = path.resolve(__dirname, '../mcp-server.log');
 // Clear log file on start for clean debugging
-try {
-  if (fs.existsSync(logFilePath)) {
-    fs.unlinkSync(logFilePath);
-  }
-} catch (error) {
-  // Ignore if file doesn't exist or can't be removed
+if (fs.existsSync(logFilePath)) {
+  fs.unlinkSync(logFilePath);
 }
 const logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
 
@@ -97,7 +93,7 @@ try {
 } catch (error) {
   logError('Failed to register QuickBooks tools', error);
   console.error('Failed to register QuickBooks tools:', error);
-  process.exit(1);
+  // REMOVED: process.exit(1) - Continue running to allow MCP handshake
 }
 
 log('Starting MCP server with stdio transport...');
@@ -106,13 +102,14 @@ log('Starting MCP server with stdio transport...');
 process.on('uncaughtException', (error) => {
   logError('Uncaught exception', error);
   console.error('Uncaught exception:', error);
-  process.exit(1);
+  // REMOVED: process.exit(1) - Let the process continue for now
+  // In production, you might want to gracefully shutdown after logging
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   logError('Unhandled rejection', { reason, promise });
   console.error('Unhandled rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  // REMOVED: process.exit(1) - Let the process continue for now
 });
 
 // Add SIGTERM and SIGINT handlers
@@ -139,5 +136,6 @@ mcp.start({
 }).catch((error) => {
   logError('Failed to start MCP server', error);
   console.error('Failed to start MCP server:', error);
-  process.exit(1);
+  // REMOVED: process.exit(1) - Even on failure, don't exit immediately
+  // The error will be reported through the MCP protocol
 });
