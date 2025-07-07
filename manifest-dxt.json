@@ -35,18 +35,18 @@
     "qb_client_id": {
       "type": "string",
       "title": "QuickBooks Client ID",
-      "description": "Your QuickBooks OAuth application client ID from developer.intuit.com",
+      "description": "Your QuickBooks OAuth application client ID (leave empty to use default production credentials)",
       "default": "ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "qb_client_secret": {
       "type": "string",
       "title": "QuickBooks Client Secret",
-      "description": "Your QuickBooks OAuth application client secret",
+      "description": "Your QuickBooks OAuth application client secret (leave empty to use default production credentials)",
       "default": "BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "qb_redirect_uri": {
       "type": "string",
@@ -64,7 +64,7 @@
     "qb_refresh_token": {
       "type": "string",
       "title": "QuickBooks Refresh Token",
-      "description": "OAuth refresh token (will be auto-populated after first authentication)",
+      "description": "OAuth refresh token (leave empty to use pre-authenticated token, or will be auto-populated after authentication)",
       "default": "RT1-24-H0-1760634692wizkk7pzd6t125o5175a",
       "sensitive": true,
       "required": false
