@@ -12,7 +12,7 @@ describe('MCP Server Initialization Compliance', () => {
       env: {
         ...process.env,
         NODE_ENV: 'test'
-        // Intentionally missing INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET
+        // Intentionally missing QB_CLIENT_ID and QB_CLIENT_SECRET
       }
     });
 
@@ -50,8 +50,8 @@ describe('MCP Server Initialization Compliance', () => {
       env: {
         ...process.env,
         NODE_ENV: 'test',
-        INTUIT_CLIENT_ID: 'test',
-        INTUIT_CLIENT_SECRET: 'test'
+        QB_CLIENT_ID: 'test',
+        QB_CLIENT_SECRET: 'test'
       }
     });
 
@@ -82,8 +82,8 @@ describe('MCP Server Initialization Compliance', () => {
       env: {
         ...process.env,
         NODE_ENV: 'test',
-        INTUIT_CLIENT_ID: 'test',
-        INTUIT_CLIENT_SECRET: 'test'
+        QB_CLIENT_ID: 'test',
+        QB_CLIENT_SECRET: 'test'
       }
     });
 

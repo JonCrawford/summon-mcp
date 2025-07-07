@@ -42,7 +42,7 @@ describe('Server Compliance Verification', () => {
         PATH: process.env.PATH,
         NODE_ENV: 'test',
         // Partial config
-        INTUIT_CLIENT_ID: 'test-id'
+        QB_CLIENT_ID: 'test-id'
       }
     });
 
@@ -71,7 +71,7 @@ describe('Server Compliance Verification', () => {
     const configs = [
       {}, // No env
       { NODE_ENV: 'test' }, // Minimal env
-      { INTUIT_CLIENT_ID: 'bad', INTUIT_CLIENT_SECRET: 'bad' }, // Bad credentials
+      { QB_CLIENT_ID: 'bad', QB_CLIENT_SECRET: 'bad' }, // Bad credentials
     ];
 
     const processes = configs.map(env => {

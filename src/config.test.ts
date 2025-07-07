@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getConfig, isConfigError, getOAuthUrls, getApiBaseUrl } from './config.js';
+import { getConfig, isConfigError, getOAuthUrls, getApiBaseUrl, getRedirectUri, hasOAuthCredentials } from './config.js';
 
 describe('Configuration Module', () => {
   // Store original env vars
@@ -7,9 +7,11 @@ describe('Configuration Module', () => {
   
   beforeEach(() => {
     // Clear relevant env vars before each test
-    delete process.env.QUICKBOOKS_PRODUCTION;
-    delete process.env.INTUIT_CLIENT_ID;
-    delete process.env.INTUIT_CLIENT_SECRET;
+    delete process.env.QB_PRODUCTION;
+    delete process.env.QB_CLIENT_ID;
+    delete process.env.QB_CLIENT_SECRET;
+    delete process.env.QB_REDIRECT_URI;
+    delete process.env.QB_REFRESH_TOKEN;
   });
   
   afterEach(() => {
@@ -18,9 +20,9 @@ describe('Configuration Module', () => {
   });
   
   describe('getConfig', () => {
-    it('should default to sandbox mode when QUICKBOOKS_PRODUCTION is not set', () => {
-      process.env.INTUIT_CLIENT_ID = 'test_client_id';
-      process.env.INTUIT_CLIENT_SECRET = 'test_client_secret';
+    it('should default to sandbox mode when QB_PRODUCTION is not set', () => {
+      process.env.QB_CLIENT_ID = 'test_client_id';
+      process.env.QB_CLIENT_SECRET = 'test_client_secret';
       
       const config = getConfig();
       
@@ -32,10 +34,10 @@ describe('Configuration Module', () => {
       }
     });
     
-    it('should default to sandbox mode when QUICKBOOKS_PRODUCTION is not "true"', () => {
-      process.env.QUICKBOOKS_PRODUCTION = 'false';
-      process.env.INTUIT_CLIENT_ID = 'test_client_id';
-      process.env.INTUIT_CLIENT_SECRET = 'test_client_secret';
+    it('should default to sandbox mode when QB_PRODUCTION is not "true"', () => {
+      process.env.QB_PRODUCTION = 'false';
+      process.env.QB_CLIENT_ID = 'test_client_id';
+      process.env.QB_CLIENT_SECRET = 'test_client_secret';
       
       const config = getConfig();
       
@@ -46,10 +48,10 @@ describe('Configuration Module', () => {
       }
     });
     
-    it('should use production mode when QUICKBOOKS_PRODUCTION is "true"', () => {
-      process.env.QUICKBOOKS_PRODUCTION = 'true';
-      process.env.INTUIT_CLIENT_ID = 'test_client_id';
-      process.env.INTUIT_CLIENT_SECRET = 'test_client_secret';
+    it('should use production mode when QB_PRODUCTION is "true"', () => {
+      process.env.QB_PRODUCTION = 'true';
+      process.env.QB_CLIENT_ID = 'test_client_id';
+      process.env.QB_CLIENT_SECRET = 'test_client_secret';
       
       const config = getConfig();
       
@@ -61,8 +63,8 @@ describe('Configuration Module', () => {
       }
     });
     
-    it('should return error when INTUIT_CLIENT_ID is missing', () => {
-      process.env.INTUIT_CLIENT_SECRET = 'test_secret';
+    it('should return error when QB_CLIENT_ID is missing', () => {
+      process.env.QB_CLIENT_SECRET = 'test_secret';
       
       const config = getConfig();
       
@@ -70,12 +72,12 @@ describe('Configuration Module', () => {
       if (isConfigError(config)) {
         expect(config.error).toBe('CONFIGURATION_ERROR');
         expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
-        expect(config.details).toContain('INTUIT_CLIENT_ID');
+        expect(config.details).toContain('QB_CLIENT_ID');
       }
     });
     
-    it('should return error when INTUIT_CLIENT_SECRET is missing', () => {
-      process.env.INTUIT_CLIENT_ID = 'test_client_id';
+    it('should return error when QB_CLIENT_SECRET is missing', () => {
+      process.env.QB_CLIENT_ID = 'test_client_id';
       
       const config = getConfig();
       
@@ -83,7 +85,7 @@ describe('Configuration Module', () => {
       if (isConfigError(config)) {
         expect(config.error).toBe('CONFIGURATION_ERROR');
         expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
-        expect(config.details).toContain('INTUIT_CLIENT_SECRET');
+        expect(config.details).toContain('QB_CLIENT_SECRET');
       }
     });
     
@@ -98,8 +100,8 @@ describe('Configuration Module', () => {
     });
     
     it('should include credentials in config when valid', () => {
-      process.env.INTUIT_CLIENT_ID = 'my_client_id';
-      process.env.INTUIT_CLIENT_SECRET = 'my_client_secret';
+      process.env.QB_CLIENT_ID = 'my_client_id';
+      process.env.QB_CLIENT_SECRET = 'my_client_secret';
       
       const config = getConfig();
       
@@ -108,6 +110,77 @@ describe('Configuration Module', () => {
         expect(config.clientId).toBe('my_client_id');
         expect(config.clientSecret).toBe('my_client_secret');
       }
+    });
+
+    it('should include optional environment variables when set', () => {
+      process.env.QB_CLIENT_ID = 'test_client_id';
+      process.env.QB_CLIENT_SECRET = 'test_client_secret';
+      process.env.QB_REDIRECT_URI = 'https://custom-redirect.com/cb';
+      process.env.QB_REFRESH_TOKEN = 'refresh123';
+      
+      const config = getConfig();
+      
+      expect(isConfigError(config)).toBe(false);
+      if (!isConfigError(config)) {
+        expect(config.redirectUri).toBe('https://custom-redirect.com/cb');
+        expect(config.refreshToken).toBe('refresh123');
+      }
+    });
+  });
+
+  describe('getRedirectUri', () => {
+    it('should use config redirectUri when provided', () => {
+      const config = { redirectUri: 'https://custom.com/callback' };
+      const uri = getRedirectUri(config);
+      expect(uri).toBe('https://custom.com/callback');
+    });
+
+    it('should use environment variable when no config provided', () => {
+      process.env.QB_REDIRECT_URI = 'https://env-uri.com/cb';
+      const uri = getRedirectUri();
+      expect(uri).toBe('https://env-uri.com/cb');
+    });
+
+    it('should default to production sslip.io URL when production mode', () => {
+      process.env.QB_PRODUCTION = 'true';
+      const uri = getRedirectUri();
+      expect(uri).toBe('https://127-0-0-1.sslip.io:9741/cb');
+    });
+
+    it('should default to localhost URL when sandbox mode', () => {
+      process.env.QB_PRODUCTION = 'false';
+      const uri = getRedirectUri();
+      expect(uri).toBe('http://localhost:9741/cb');
+    });
+
+    it('should prefer config over environment', () => {
+      process.env.QB_REDIRECT_URI = 'https://env-uri.com/cb';
+      const config = { redirectUri: 'https://config-uri.com/cb' };
+      const uri = getRedirectUri(config);
+      expect(uri).toBe('https://config-uri.com/cb');
+    });
+  });
+
+  describe('hasOAuthCredentials', () => {
+    it('should return true when credentials are available', () => {
+      process.env.QB_CLIENT_ID = 'test_client_id';
+      process.env.QB_CLIENT_SECRET = 'test_client_secret';
+      
+      expect(hasOAuthCredentials()).toBe(true);
+    });
+
+    it('should return false when credentials are missing', () => {
+      expect(hasOAuthCredentials()).toBe(false);
+    });
+
+    it('should return false when only client ID is set', () => {
+      process.env.QB_CLIENT_ID = 'test_client_id';
+      expect(hasOAuthCredentials()).toBe(false);
+    });
+
+    it('should return false when only client secret is set', () => {
+      process.env.QB_CLIENT_SECRET = 'test_client_secret';
+      expect(hasOAuthCredentials()).toBe(false);
     });
   });
   

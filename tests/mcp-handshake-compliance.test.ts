@@ -45,8 +45,8 @@ describe('MCP Handshake Compliance', () => {
         PATH: process.env.PATH,
         NODE_ENV: 'test',
         // Only one of the required credentials
-        INTUIT_CLIENT_ID: 'test-id'
-        // Missing INTUIT_CLIENT_SECRET
+        QB_CLIENT_ID: 'test-id'
+        // Missing QB_CLIENT_SECRET
       }
     });
 
@@ -80,8 +80,8 @@ describe('MCP Handshake Compliance', () => {
       env: {
         PATH: process.env.PATH,
         NODE_ENV: 'production', // Force production mode
-        INTUIT_CLIENT_ID: 'invalid',
-        INTUIT_CLIENT_SECRET: 'invalid',
+        QB_CLIENT_ID: 'invalid',
+        QB_CLIENT_SECRET: 'invalid',
         QUICKBOOKS_PRODUCTION: 'true'
       }
     });
