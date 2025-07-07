@@ -36,6 +36,7 @@
       "type": "string",
       "title": "QuickBooks Client ID",
       "description": "Your QuickBooks OAuth application client ID from developer.intuit.com",
+      "default": "ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8",
       "sensitive": true,
       "required": true
     },
@@ -43,6 +44,7 @@
       "type": "string",
       "title": "QuickBooks Client Secret",
       "description": "Your QuickBooks OAuth application client secret",
+      "default": "BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx",
       "sensitive": true,
       "required": true
     },
@@ -50,18 +52,20 @@
       "type": "string",
       "title": "OAuth Redirect URI",
       "description": "OAuth callback URL (defaults to https://127-0-0-1.sslip.io:9741/cb for production)",
+      "default": "https://127-0-0-1.sslip.io:9741/cb",
       "required": false
     },
     "qb_production": {
       "type": "boolean",
       "title": "Production Mode",
       "description": "Use QuickBooks production environment instead of sandbox",
-      "default": false
+      "default": true
     },
     "qb_refresh_token": {
       "type": "string",
       "title": "QuickBooks Refresh Token",
       "description": "OAuth refresh token (will be auto-populated after first authentication)",
+      "default": "RT1-24-H0-1760634692wizkk7pzd6t125o5175a",
       "sensitive": true,
       "required": false
     },
