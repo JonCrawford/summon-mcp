@@ -9,9 +9,11 @@
 
 import QuickBooks from 'node-quickbooks';
 import { TokenManager } from './token-manager.js';
+import { TokenData } from './token-storage.js';
 import { OAuthListener } from './oauth-listener.js';
 import { spawn } from 'child_process';
 import { platform } from 'os';
+import { getConfig, isConfigError, getRedirectUri } from './config.js';
 
 // Singleton instances
 let tokenManager: TokenManager | null = null;
@@ -64,39 +66,74 @@ export async function ensureAuth(): Promise<boolean> {
 /**
  * Start OAuth flow
  */
-export async function startOAuthFlow(): Promise<{ authUrl: string; message: string }> {
+export async function startOAuthFlow(): Promise<{ authUrl: string; message: string; refreshToken?: string; realmId?: string }> {
   const tm = getTokenManager();
   const listener = new OAuthListener();
   
   try {
-    // Start the OAuth listener
-    const { port, state } = await listener.start();
+    console.error('OAuth: Starting OAuth flow...');
     
-    // Generate auth URL with dynamic callback
-    const isProduction = process.env.QUICKBOOKS_PRODUCTION === 'true';
-    const redirectUri = isProduction
-      ? `https://127-0-0-1.sslip.io:${port}/cb`
-      : `http://localhost:${port}/cb`;
+    // Start the OAuth listener
+    const { state } = await listener.start();
+    console.error(`OAuth: Listener started on port 9741, state: ${state}`);
+    
+    // Get configuration
+    const config = getConfig();
+    if (isConfigError(config)) {
+      throw new Error(config.message);
+    }
+    
+    // Generate auth URL with proper redirect URI
+    const redirectUri = getRedirectUri(config);
+    
+    console.error(`OAuth: Using ${config.environment} mode with redirect URI: ${redirectUri}`);
     
     const authUrl = tm.generateAuthUrl(state, redirectUri);
+    console.error(`OAuth: Generated auth URL: ${authUrl}`);
     
     // Open browser in background
     openBrowser(authUrl);
     
     // Wait for callback
+    console.error('OAuth: Waiting for callback...');
     const result = await listener.waitForCallback();
+    console.error(`OAuth: Callback received - code: ${result.code?.substring(0, 10)}..., realmId: ${result.realmId}`);
     
     // Exchange code for tokens
-    await tm.exchangeCodeForTokens(result.code, result.realmId!);
+    console.error('OAuth: Exchanging authorization code for tokens...');
+    let tokenData: TokenData | null = null;
+    try {
+      await tm.exchangeCodeForTokens(result.code, result.realmId!);
+      console.error('OAuth: Token exchange successful!');
+      
+      // Get the saved token data to return to user
+      tokenData = await tm.getTokenData();
+      
+      // Set token data on the listener so it can be served via /tokens endpoint
+      if (tokenData) {
+        listener.setTokenData({
+          refreshToken: tokenData.refreshToken,
+          realmId: tokenData.realmId
+        });
+      }
+    } catch (exchangeError: any) {
+      console.error('OAuth: Token exchange failed:', exchangeError);
+      console.error('OAuth: Error details:', JSON.stringify(exchangeError, null, 2));
+      throw exchangeError;
+    }
     
     // Clear client cache to force recreation with new tokens
     qbClient = null;
     
     return {
       authUrl,
-      message: 'Authentication successful! QuickBooks has been connected.'
+      message: 'Authentication successful! QuickBooks has been connected.',
+      refreshToken: tokenData?.refreshToken,
+      realmId: tokenData?.realmId
     };
   } catch (error: any) {
+    console.error('OAuth: Flow failed:', error);
+    console.error('OAuth: Error stack:', error.stack);
     throw new Error(`OAuth flow failed: ${error.message}`);
   }
 }
@@ -153,17 +190,19 @@ export async function getQBOClient(): Promise<QuickBooks> {
     throw new Error('No QuickBooks company connected');
   }
   
-  const tokenStorage = new (await import('./token-storage.js')).TokenStorage();
-  const credentials = tokenStorage.getOAuthCredentials();
-  const isProduction = process.env.QUICKBOOKS_PRODUCTION === 'true';
+  // Get configuration
+  const config = getConfig();
+  if (isConfigError(config)) {
+    throw new Error(config.message);
+  }
   
   qbClient = new QuickBooks(
-    credentials.clientId,
-    credentials.clientSecret,
+    config.clientId,
+    config.clientSecret,
     accessToken,
     false, // No token secret for OAuth 2.0
     metadata.realmId,
-    !isProduction, // Use sandbox = true when NOT in production
+    !config.isProduction, // Use sandbox = true when NOT in production
     false, // Disable debug for MCP stdio transport
     null, // Minor version
     '2.0', // OAuth version
@@ -185,6 +224,13 @@ export async function listCompanies(): Promise<string[]> {
   }
   
   return [metadata.companyName];
+}
+
+/**
+ * Clear cached QuickBooks client (forces recreation on next call)
+ */
+export function clearClientCache(): void {
+  qbClient = null;
 }
 
 /**

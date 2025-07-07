@@ -8,6 +8,8 @@ export interface QuickBooksConfig {
   environment: 'production' | 'sandbox';
   clientId: string;
   clientSecret: string;
+  redirectUri?: string;
+  refreshToken?: string;
   tokenFilePath: string;
 }
 
@@ -23,33 +25,21 @@ export interface ConfigError {
  */
 export function getConfig(): QuickBooksConfig | ConfigError {
   // Read production mode from environment
-  const isProduction = process.env.QUICKBOOKS_PRODUCTION === 'true';
+  const isProduction = process.env.QB_PRODUCTION === 'true';
   const environment = isProduction ? 'production' : 'sandbox';
   
-  // Read OAuth credentials - check for production-specific credentials first
-  let clientId: string | undefined;
-  let clientSecret: string | undefined;
-  
-  if (isProduction) {
-    // In production mode, prefer production-specific credentials
-    clientId = process.env.INTUIT_CLIENT_ID_PRODUCTION || process.env.INTUIT_CLIENT_ID;
-    clientSecret = process.env.INTUIT_CLIENT_SECRET_PRODUCTION || process.env.INTUIT_CLIENT_SECRET;
-  } else {
-    // In sandbox mode, use regular credentials
-    clientId = process.env.INTUIT_CLIENT_ID;
-    clientSecret = process.env.INTUIT_CLIENT_SECRET;
-  }
+  // Read OAuth credentials from standardized QB_* environment variables
+  const clientId = process.env.QB_CLIENT_ID;
+  const clientSecret = process.env.QB_CLIENT_SECRET;
+  const redirectUri = process.env.QB_REDIRECT_URI;
+  const refreshToken = process.env.QB_REFRESH_TOKEN;
   
   // Validate required credentials
   if (!clientId || !clientSecret) {
-    const envVarNames = isProduction 
-      ? 'INTUIT_CLIENT_ID_PRODUCTION and INTUIT_CLIENT_SECRET_PRODUCTION (or INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET)'
-      : 'INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET';
-    
     return {
       error: 'CONFIGURATION_ERROR',
       message: `Missing required QuickBooks OAuth credentials for ${environment} mode`,
-      details: `Please set ${envVarNames} environment variables`
+      details: 'Please set QB_CLIENT_ID and QB_CLIENT_SECRET environment variables'
     };
   }
   
@@ -61,6 +51,8 @@ export function getConfig(): QuickBooksConfig | ConfigError {
     environment,
     clientId,
     clientSecret,
+    redirectUri,
+    refreshToken,
     tokenFilePath
   };
 }
@@ -92,4 +84,34 @@ export function getApiBaseUrl(environment: 'production' | 'sandbox') {
   return environment === 'production' 
     ? 'https://quickbooks.api.intuit.com'
     : 'https://sandbox-quickbooks.api.intuit.com';
+}
+
+/**
+ * Get the OAuth redirect URI with proper fallback
+ */
+export function getRedirectUri(config?: Partial<QuickBooksConfig>): string {
+  // Use configured redirect URI if provided
+  if (config?.redirectUri) {
+    return config.redirectUri;
+  }
+  
+  // Check environment variable
+  if (process.env.QB_REDIRECT_URI) {
+    return process.env.QB_REDIRECT_URI;
+  }
+  
+  // Use default based on production mode
+  const isProduction = config?.isProduction ?? (process.env.QB_PRODUCTION === 'true');
+  
+  return isProduction
+    ? 'https://127-0-0-1.sslip.io:9741/cb'
+    : 'http://localhost:9741/cb';
+}
+
+/**
+ * Check if OAuth credentials are available
+ */
+export function hasOAuthCredentials(): boolean {
+  const config = getConfig();
+  return !isConfigError(config);
 }

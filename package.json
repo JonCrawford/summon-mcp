@@ -8,10 +8,12 @@
   },
   "scripts": {
     "start": "tsx src/server.ts",
+    "start:broker": "tsx src/server-broker.ts",
     "dev": "tsx watch src/server.ts",
+    "dev:broker": "tsx watch src/server-broker.ts",
     "build": "tsc",
     "build:dxt": "npm run build && npm run package:dxt",
-    "package:dxt": "dxt pack .",
+    "package:dxt": "dxt pack . --manifest manifest-broker.json",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",

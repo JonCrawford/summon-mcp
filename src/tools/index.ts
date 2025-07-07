@@ -1,7 +1,7 @@
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
 import { entities } from './entities.js';
-import { getQBOClient, listCompanies } from '../quickbooks-broker.js';
+import { QuickBooksBroker } from '../quickbooks-broker-mt.js';
 import { withAuth } from './auth-wrapper.js';
 
 // Common parameters for all QuickBooks list tools
@@ -35,23 +35,9 @@ const reportTypes = {
 /**
  * Register all QuickBooks entity tools with the MCP server
  * @param mcp - The FastMCP instance
+ * @param broker - The QuickBooks broker instance
  */
-export function registerQuickBooksTools(mcp: FastMCP): void {
-
-  mcp.addTool({
-      name: 'qb_list_companies',
-      description: 'List all available QuickBooks companies',
-      parameters: z.object({}),
-      execute: withAuth(async () => {
-          const companies = await listCompanies();
-          return {
-              content: [{
-                  type: 'text',
-                  text: JSON.stringify(companies, null, 2)
-              }]
-          };
-      })
-  });
+export function registerQuickBooksTools(mcp: FastMCP, broker: QuickBooksBroker): void {
   // Register a tool for each entity
   entities.forEach(entity => {
     mcp.addTool({
@@ -60,8 +46,8 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
       parameters: listParametersSchema,
       execute: withAuth(async (args) => {
         try {
-          // Get authenticated QuickBooks client
-          const qbo = await getQBOClient();
+          // Get authenticated QuickBooks client for the specified company
+          const qbo = await broker.getQBOClient(args.companyName);
           
           // Build query parameters
           const queryParams: any = {
@@ -92,7 +78,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
               if (err) {
                 // Handle specific error cases
                 if (err.authData && err.authData.statusCode === 401) {
-                  reject(new Error('Authentication failed. Please reconnect to QuickBooks by visiting /connect'));
+                  reject(new Error('Authentication failed. Please reconnect to QuickBooks using the authenticate tool'));
                 } else if (err.statusCode === 429) {
                   reject(new Error('Rate limit exceeded. Please try again later.'));
                 } else {
@@ -129,9 +115,9 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
     parameters: z.object({
         companyName: z.string().optional().describe('The name of the QuickBooks company to query')
     }),
-    execute: withAuth(async (_args) => {
+    execute: withAuth(async (args) => {
       try {
-        const qbo = await getQBOClient();
+        const qbo = await broker.getQBOClient(args.companyName);
         
         return new Promise((resolve, reject) => {
           // QuickBooks CompanyInfo typically has ID of 1
@@ -173,7 +159,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
     }),
     execute: withAuth(async (args) => {
       try {
-        const qbo = await getQBOClient();
+        const qbo = await broker.getQBOClient(args.companyName);
         
         // Get the SDK method name
         const sdkMethodName = reportTypes[args.reportType as keyof typeof reportTypes];
@@ -201,7 +187,7 @@ export function registerQuickBooksTools(mcp: FastMCP): void {
           reportMethod.call(qbo, reportParams, (err: any, data: any) => {
             if (err) {
               if (err.authData && err.authData.statusCode === 401) {
-                reject(new Error('Authentication failed. Please reconnect to QuickBooks by visiting /connect'));
+                reject(new Error('Authentication failed. Please reconnect to QuickBooks using the authenticate tool'));
               } else if (err.statusCode === 429) {
                 reject(new Error('Rate limit exceeded. Please try again later.'));
               } else {

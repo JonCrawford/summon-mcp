@@ -21,6 +21,12 @@ function write(message: string) {
 }
 
 export function initializeLogger(logFilePath?: string) {
+    // Skip file logging in DXT environment
+    if (process.env.DXT_ENVIRONMENT || process.env.QUICKBOOKS_NO_FILE_LOGGING) {
+        console.error("Logger: Running in read-only environment, using stderr only");
+        return;
+    }
+    
     if (!logFilePath) {
         console.error("Logger initialized without a file path. Logging to stderr only.");
         return;

@@ -1,13 +1,10 @@
 import { FastMCP } from 'fastmcp';
-import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { registerQuickBooksTools } from './tools/index.js';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import { registerMinimalTools } from './tools/minimal-tools.js';
+import { registerQuickBooksResources } from './resources/index.js';
+import { registerQuickBooksPrompts } from './prompts/index.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -60,17 +57,37 @@ const mcp = new FastMCP({
 // Add debug logging for FastMCP events
 console.error('FastMCP instance created');
 
-// Add health check tool
-mcp.addTool({
-  name: 'health_check',
-  description: 'Check if the server is running',
-  parameters: z.object({}),
-  execute: async () => {
-    return { content: [{ type: 'text', text: 'OK' }] };
-  }
-});
+// Register minimal action-oriented tools
+log('Registering minimal tools...');
+try {
+  registerMinimalTools(mcp);
+  log('Minimal tools registered successfully');
+} catch (error) {
+  logError('Failed to register minimal tools', error);
+  console.error('Failed to register minimal tools:', error);
+}
 
-// Add minimal resource and prompt to ensure handlers are set up
+// Register QuickBooks resources (data access)
+log('Registering QuickBooks resources...');
+try {
+  registerQuickBooksResources(mcp);
+  log('QuickBooks resources registered successfully');
+} catch (error) {
+  logError('Failed to register QuickBooks resources', error);
+  console.error('Failed to register QuickBooks resources:', error);
+}
+
+// Register QuickBooks prompts (workflow templates)
+log('Registering QuickBooks prompts...');
+try {
+  registerQuickBooksPrompts(mcp);
+  log('QuickBooks prompts registered successfully');
+} catch (error) {
+  logError('Failed to register QuickBooks prompts', error);
+  console.error('Failed to register QuickBooks prompts:', error);
+}
+
+// Add server info resource
 mcp.addResource({
   name: 'Server Info',
   description: 'Information about this QuickBooks MCP server',
@@ -80,29 +97,17 @@ mcp.addResource({
     text: JSON.stringify({
       name: 'QuickBooks MCP Server',
       version: '1.0.0',
-      description: 'MCP server for QuickBooks Online integration',
-      capabilities: ['tools']
+      description: 'MCP server for QuickBooks Online integration with resources, tools, and prompts',
+      capabilities: ['tools', 'resources', 'prompts'],
+      architecture: {
+        tools: ['health_check', 'authenticate', 'clear_auth'],
+        resources: ['qb://* (dynamic QuickBooks data)', 'qb://auth/status', 'qb://metadata'],
+        prompts: ['analyze-financial-performance', 'review-customer-aging', 'monthly-close-checklist', 'setup-quickbooks-connection', 'analyze-sales-performance']
+      }
     }, null, 2)
   })
 });
 
-mcp.addPrompt({
-  name: 'quickbooks-query-help',
-  description: 'Help with QuickBooks queries and available tools',
-  arguments: [],
-  load: async () => 'I can help you query QuickBooks Online data. Available tools include listing customers, invoices, payments, and generating reports. Use the health_check tool to verify server status.'
-});
-
-// Register all QuickBooks tools
-log('Registering QuickBooks tools...');
-try {
-  registerQuickBooksTools(mcp);
-  log('QuickBooks tools registered successfully');
-} catch (error) {
-  logError('Failed to register QuickBooks tools', error);
-  console.error('Failed to register QuickBooks tools:', error);
-  process.exit(1);
-}
 
 log('Starting MCP server with stdio transport...');
 

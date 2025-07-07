@@ -3,7 +3,7 @@ import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { registerQuickBooksTools } from './tools/index.js';
+// import { registerQuickBooksTools } from './tools/index.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -88,8 +88,9 @@ mcp.addPrompt({
 // Register all QuickBooks tools
 log('Registering QuickBooks tools...');
 try {
-  registerQuickBooksTools(mcp);
-  log('QuickBooks tools registered successfully');
+  // Commented out - would need broker instance for multi-tenant support
+  // registerQuickBooksTools(mcp, broker);
+  log('QuickBooks tools registration skipped - needs broker update');
 } catch (error) {
   logError('Failed to register QuickBooks tools', error);
   console.error('Failed to register QuickBooks tools:', error);
