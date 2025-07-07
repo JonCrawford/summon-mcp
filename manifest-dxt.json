@@ -128,6 +128,7 @@
       "text": "Sales performance analysis workflow covering invoice analysis, customer performance, product/service analysis, sales trends, and key performance indicators."
     }
   ],
+  "icon": "icon.png",
   "keywords": [ "quickbooks", "accounting", "invoices", "finance", "business", "dxt" ],
   "compatibility": {
     "claude_desktop": ">=0.7.0",
