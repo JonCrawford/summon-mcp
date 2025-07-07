@@ -17,6 +17,9 @@ export interface OAuthListenerConfig {
   useHttps?: boolean;
 }
 
+// Fixed OAuth callback port - MUST match Intuit app configuration
+const OAUTH_CALLBACK_PORT = 9741;
+
 export interface OAuthResult {
   code: string;
   state: string;
@@ -30,6 +33,7 @@ export class OAuthListener {
   private rejectPromise: ((error: Error) => void) | null = null;
   private timeoutHandle: NodeJS.Timeout | null = null;
   private state: string = '';
+  private tokenData: { refreshToken?: string; realmId?: string } | null = null;
 
   constructor(private config: OAuthListenerConfig = {}) {}
 
@@ -40,7 +44,7 @@ export class OAuthListener {
     return new Promise((resolve, reject) => {
       const server = net.createServer();
       
-      server.listen(startPort, '127.0.0.1', () => {
+      server.listen(startPort, () => {
         const port = (server.address() as net.AddressInfo).port;
         server.close(() => resolve(port));
       });
@@ -83,8 +87,8 @@ export class OAuthListener {
    * Start the OAuth listener
    */
   async start(): Promise<{ port: number; state: string }> {
-    // Find available port
-    this.port = await this.findFreePort(this.config.port || 8080);
+    // Use fixed port for OAuth callbacks
+    this.port = OAUTH_CALLBACK_PORT;
     
     // Generate state
     this.state = this.generateState();
@@ -96,7 +100,7 @@ export class OAuthListener {
 
     // Start listening
     await new Promise<void>((resolve, reject) => {
-      this.server!.listen(this.port, '127.0.0.1', () => {
+      this.server!.listen(this.port, () => {
         console.error(`OAuth listener started on http://localhost:${this.port}`);
         resolve();
       });
@@ -199,29 +203,92 @@ export class OAuthListener {
 
       // Success!
       if (code && state) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`
           <!DOCTYPE html>
           <html>
           <head>
+            <meta charset="utf-8">
             <title>Authentication Successful</title>
             <style>
               body { font-family: -apple-system, system-ui, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
               .success { color: #28a745; background: #d4edda; padding: 15px; border-radius: 6px; }
-              .code { font-family: monospace; background: #f6f8fa; padding: 10px; border-radius: 4px; margin: 10px 0; }
+              .code { font-family: monospace; background: #f6f8fa; padding: 10px; border-radius: 4px; margin: 10px 0; word-break: break-all; }
+              .token-section { margin: 20px 0; padding: 20px; background: #f6f8fa; border-radius: 6px; }
+              .token-section h3 { margin-top: 0; }
+              .token-value { font-family: monospace; font-size: 12px; background: white; padding: 10px; border-radius: 4px; border: 1px solid #e1e4e8; overflow-wrap: break-word; }
+              .instructions { background: #e7f3ff; padding: 15px; border-radius: 6px; margin: 20px 0; }
+              .loading { color: #666; font-style: italic; }
             </style>
           </head>
           <body>
             <h1>Authentication Successful!</h1>
             <div class="success">
-              <p>QuickBooks has been connected successfully.</p>
+              <p>✅ QuickBooks has been connected successfully.</p>
             </div>
+            
             <p>You can now close this window and return to Claude Desktop.</p>
+            
+            <div id="token-container" style="display: none;">
+              <div class="token-section">
+                <h3>🔑 Authentication Tokens</h3>
+                <p>If your MCP client requires manual token configuration (e.g., DXT environments), use these values:</p>
+                
+                <div style="margin: 15px 0;">
+                  <strong>Refresh Token:</strong>
+                  <div class="token-value" id="refresh-token">Loading...</div>
+                </div>
+                
+                <div style="margin: 15px 0;">
+                  <strong>Realm ID (Company ID):</strong>
+                  <div class="token-value" id="realm-id">${this.escapeHtml(realmId || 'Not provided')}</div>
+                </div>
+              </div>
+              
+              <div class="instructions">
+                <h4>Configuration Instructions:</h4>
+                <p>Add these environment variables to your MCP client:</p>
+                <ul>
+                  <li><code>QB_REFRESH_TOKEN</code> - The refresh token above</li>
+                  <li><code>QB_CLIENT_ID</code> - Your QuickBooks app client ID</li>
+                  <li><code>QB_CLIENT_SECRET</code> - Your QuickBooks app client secret</li>
+                </ul>
+                <p><small>Note: Refresh tokens expire after 100 days of inactivity.</small></p>
+              </div>
+            </div>
+            
             <script>
-              // Auto-close after 3 seconds
-              setTimeout(() => {
-                window.close();
-              }, 3000);
+              
+              // Poll for token data
+              let pollCount = 0;
+              const maxPolls = 30; // 30 seconds
+              
+              function pollForTokens() {
+                fetch('/tokens')
+                  .then(res => res.json())
+                  .then(data => {
+                    if (data.refreshToken) {
+                      document.getElementById('token-container').style.display = 'block';
+                      document.getElementById('refresh-token').textContent = data.refreshToken;
+                      if (data.realmId) {
+                        document.getElementById('realm-id').textContent = data.realmId;
+                      }
+                    } else if (pollCount < maxPolls) {
+                      pollCount++;
+                      setTimeout(pollForTokens, 1000);
+                    }
+                  })
+                  .catch(err => {
+                    console.error('Failed to fetch tokens:', err);
+                    if (pollCount < maxPolls) {
+                      pollCount++;
+                      setTimeout(pollForTokens, 1000);
+                    }
+                  });
+              }
+              
+              // Start polling after a short delay to allow token exchange
+              setTimeout(pollForTokens, 2000);
             </script>
           </body>
           </html>
@@ -229,10 +296,21 @@ export class OAuthListener {
 
         if (this.resolvePromise) {
           this.resolvePromise({ code, state, realmId: realmId || undefined });
-          this.shutdown();
+          // Keep server running longer to allow token fetching
+          setTimeout(() => this.shutdown(), 35000); // 35 seconds
         }
         return;
       }
+    }
+
+    // Handle tokens endpoint
+    if (url.pathname === '/tokens' && req.method === 'GET') {
+      res.writeHead(200, { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end(JSON.stringify(this.tokenData || {}));
+      return;
     }
 
     // Handle other requests
@@ -278,5 +356,12 @@ export class OAuthListener {
       return `https://127-0-0-1.sslip.io:${this.port}/cb`;
     }
     return `http://localhost:${this.port}/cb`;
+  }
+
+  /**
+   * Set token data to be served via /tokens endpoint
+   */
+  setTokenData(data: { refreshToken?: string; realmId?: string }) {
+    this.tokenData = data;
   }
 }

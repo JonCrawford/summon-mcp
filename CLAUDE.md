@@ -17,6 +17,8 @@ This is a QuickBooks MCP (Model Context Protocol) Server that provides read-only
 - **DXT Packaging**: MUST use `server-broker.ts` and `manifest-broker.json`. The direct OAuth server (`server.ts`) will crash in DXT because it tries to instantiate OAuth client at startup.
 - **MCP Protocol Compliance**: Server MUST NOT call `process.exit(1)` before completing the MCP handshake. The server must always be able to start and respond to the initialize request, even when unconfigured. Report configuration issues through the protocol (health_check tool, error responses) instead of exiting during startup.
 - **Async File Operations**: All file I/O (logger, cache) must use async operations with `setImmediate()` to avoid blocking startup in read-only DXT environment. Synchronous fs operations will crash the extension.
+- **DXT CLI documentation**: https://raw.githubusercontent.com/anthropics/dxt/refs/heads/main/CLI.md
+- **DXT Manifest documentation**: https://raw.githubusercontent.com/anthropics/dxt/refs/heads/main/MANIFEST.md
 
 ## Development Commands
 
@@ -138,11 +140,21 @@ Additional MCP capabilities:
 
 Required in `.env`:
 ```
-INTUIT_CLIENT_ID=your_client_id
-INTUIT_CLIENT_SECRET=your_client_secret
+QB_CLIENT_ID=your_client_id
+QB_CLIENT_SECRET=your_client_secret
+QB_PRODUCTION=true  # Optional, defaults to false (sandbox mode)
 PORT=8080  # Optional, defaults to 8080
-QUICKBOOKS_PRODUCTION=true  # Optional, defaults to false (sandbox mode)
 ```
+
+## Claude Code Installation
+
+To install the QuickBooks MCP server in Claude Code with production mode:
+
+```bash
+claude mcp add quickbooks -e QB_CLIENT_ID=ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8 -e QB_CLIENT_SECRET=BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx -e QB_PRODUCTION=true -- npx tsx /Users/jon/Projects/quickbooks-mcp2/src/server.ts
+```
+
+For sandbox mode (development), omit the `QB_PRODUCTION` environment variable or set it to `false`.
 
 ## Error Handling
 
@@ -209,3 +221,4 @@ QUICKBOOKS_PRODUCTION=true  # Optional, defaults to false (sandbox mode)
   ```
   npx @modelcontextprotocol/inspector --cli https://my-mcp-server.example.com --method resources/list
   ```
+```
