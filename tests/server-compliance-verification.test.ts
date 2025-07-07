@@ -55,7 +55,7 @@ describe('Server Compliance Verification', () => {
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Should see startup message
-    expect(stderrOutput).toContain('MCP server started successfully');
+    expect(stderrOutput).toContain('FastMCP instance created');
     
     // Should still be running
     expect(serverProcess.killed).toBe(false);
