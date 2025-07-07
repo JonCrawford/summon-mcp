@@ -95,9 +95,14 @@ export function getRedirectUri(config?: Partial<QuickBooksConfig>): string {
     return config.redirectUri;
   }
   
-  // Check environment variable
+  // Check environment variable (handle DXT template substitution failure)
   if (process.env.QB_REDIRECT_URI) {
-    return process.env.QB_REDIRECT_URI;
+    if (process.env.QB_REDIRECT_URI.includes('${user_config')) {
+      console.error(`Warning: DXT template substitution failed for QB_REDIRECT_URI: ${process.env.QB_REDIRECT_URI}`);
+      console.error('Using default redirect URI instead. Please configure qb_redirect_uri in your DXT settings.');
+    } else {
+      return process.env.QB_REDIRECT_URI;
+    }
   }
   
   // Use default based on production mode
