@@ -82,7 +82,13 @@
       "Bash(dxt pack:*)",
       "Bash(git rm:*)",
       "Bash(npx tsc:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "WebFetch(domain:modelcontextprotocol.io)",
+      "WebFetch(domain:gofastmcp.com)",
+      "mcp__quickbooks__authenticate",
+      "Bash(npx vitest run:*)",
+      "Bash(npx @anthropic-ai/dxt validate manifest.json)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": []
   },
