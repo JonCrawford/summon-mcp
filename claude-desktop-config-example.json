@@ -1,14 +1,15 @@
 {
-  "mcpServers": {
-    "quickbooks-mcp": {
-      "command": "npx",
-      "args": ["tsx", "src/server.ts"],
-      "cwd": "/Users/jon/Projects/quickbooks-mcp2",
-      "env": {
-        "INTUIT_CLIENT_ID": "ABhWqP8aITWOieKqKzXCJIWKlkeHMjIjK8hhVaSBT42biBJrax",
-        "INTUIT_CLIENT_SECRET": "lUM5oqOzu93RxouuGeTQsLcHwNiA6afjgkZBAyjv",
-        "QUICKBOOKS_PRODUCTION": "false"
-      }
+  "summon": {
+    "command": "npx",
+    "args": [
+      "tsx",
+      "/Users/jon/Projects/summon-quickbooks-mcp/src/server.ts"
+    ],
+    "env": {
+      "QB_CLIENT_ID": "ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8",
+      "QB_CLIENT_SECRET": "BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx",
+      "QB_PRODUCTION": "true",
+      "QB_STORAGE_DIR": "/Users/jon/Documents"
     }
   }
 }

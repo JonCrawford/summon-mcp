@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "tsx",
-        "/Users/jon/Projects/quickbooks-mcp2/src/server.ts"
+        "/Users/jon/Projects/summon-quickbooks-mcp/src/server.ts"
       ],
       "env": {
         "INTUIT_CLIENT_ID": "ABhWqP8aITWOieKqKzXCJIWKlkeHMjIjK8hhVaSBT42biBJrax",

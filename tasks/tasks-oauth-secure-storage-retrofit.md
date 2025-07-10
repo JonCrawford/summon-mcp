@@ -17,8 +17,6 @@
 - `tests/mcp-initialization.test.ts` - MCP initialization compliance tests (created)
 - `tests/mcp-handshake-compliance.test.ts` - Comprehensive handshake compliance tests (created)
 - `tests/server-compliance-verification.test.ts` - Server compliance verification tests (created)
-- `src/server-safe.ts` - Alternative safe server implementation (created)
-- `src/server-compliant.ts` - MCP compliant server implementation (created)
 - `docs/dxt-v0.2.0-research.md` - Research summary for DXT v0.2.0 features (created)
 
 ### Notes

@@ -88,12 +88,13 @@
       "mcp__quickbooks__authenticate",
       "Bash(npx vitest run:*)",
       "Bash(npx @anthropic-ai/dxt validate manifest.json)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(QB_CLIENT_ID=test_client_id QB_CLIENT_SECRET=test_client_secret npx @modelcontextprotocol/inspector --cli node dist/server-broker.js --method tools/call --tool-name authenticate --tool-arg force=false)"
     ],
     "deny": []
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "quickbooks-mcp"
+    "quickbooks"
   ]
 }

@@ -1,38 +1,41 @@
 {
-  "name": "quickbooks-mcp",
-  "version": "1.0.0",
+  "name": "summon",
+  "version": "2.0.18",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "quickbooks-mcp": "./dist/index.js"
+    "summon": "./dist/index.js"
   },
   "scripts": {
     "start": "tsx src/server.ts",
-    "start:broker": "tsx src/server-broker.ts",
     "dev": "tsx watch src/server.ts",
-    "dev:broker": "tsx watch src/server-broker.ts",
     "build": "tsc",
     "build:dxt": "npm run build && npm run package:dxt",
-    "package:dxt": "dxt pack . --manifest manifest-broker.json",
+    "package:dxt": "npm run build && npx dxt pack . quickbooks-mcp.dxt",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
+    "test:integration": "vitest run tests/server.integration.test.ts",
     "test:watch": "vitest",
     "lint": "eslint 'src/**/*.{ts,tsx}' --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx src/migrate-tokens.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/sql.js": "^1.4.9",
     "dotenv": "^17.0.1",
     "fastmcp": "^3.8.2",
     "intuit-oauth": "^4.2.0",
     "node-quickbooks": "^2.0.46",
+    "sql.js": "^1.13.0",
     "zod": "^3.25.74"
   },
   "devDependencies": {
     "@anthropic-ai/dxt": "^0.2.0",
+    "@modelcontextprotocol/sdk": "^1.15.0",
     "@pollyjs/adapter-node-http": "^6.0.6",
     "@pollyjs/core": "^6.0.6",
     "@pollyjs/persister-fs": "^6.0.6",

@@ -1,0 +1,123 @@
+{
+  "dxt_version": "0.1",
+  "name": "summon",
+  "version": "2.0.1",
+  "description": "summon - QuickBooks Online integration for MCP",
+  "author": {
+    "name": "summon Team"
+  },
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/server.js"],
+      "env": {
+        "QB_CLIENT_ID": "${user_config.qb_client_id}",
+        "QB_CLIENT_SECRET": "${user_config.qb_client_secret}",
+        "QB_REDIRECT_URI": "${user_config.qb_redirect_uri}",
+        "QB_PRODUCTION": "${user_config.qb_production}",
+        "QB_REFRESH_TOKEN": "${user_config.qb_refresh_token}"
+      }
+    }
+  },
+  "user_config": {
+    "debug": {
+      "type": "boolean",
+      "title": "Enable Debug Logging",
+      "description": "Outputs detailed logs to the Claude Desktop developer console.",
+      "default": false
+    },
+    "qb_client_id": {
+      "type": "string",
+      "title": "QuickBooks Client ID",
+      "description": "Your QuickBooks OAuth application client ID from developer.intuit.com",
+      "sensitive": true,
+      "required": true
+    },
+    "qb_client_secret": {
+      "type": "string",
+      "title": "QuickBooks Client Secret",
+      "description": "Your QuickBooks OAuth application client secret",
+      "sensitive": true,
+      "required": true
+    },
+    "qb_redirect_uri": {
+      "type": "string",
+      "title": "OAuth Redirect URI",
+      "description": "OAuth callback URL (defaults to https://127-0-0-1.sslip.io:9741/cb for production)",
+      "required": false
+    },
+    "qb_production": {
+      "type": "boolean",
+      "title": "Production Mode",
+      "description": "Use QuickBooks production environment instead of sandbox",
+      "default": false
+    },
+    "qb_refresh_token": {
+      "type": "string",
+      "title": "QuickBooks Refresh Token",
+      "description": "OAuth refresh token (automatically managed after first authentication)",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "health_check", "description": "Check if the QuickBooks MCP server is running and responsive." },
+    { "name": "authenticate", "description": "Start QuickBooks OAuth authentication flow to connect your QuickBooks account." },
+    { "name": "clear_auth", "description": "Clear stored QuickBooks authentication and disconnect from QuickBooks." }
+  ],
+  "resources": [
+    { "uri_template": "qb://companies", "description": "List of connected QuickBooks companies" },
+    { "uri_template": "qb://company/info", "description": "Current QuickBooks company information and settings" },
+    { "uri_template": "qb://auth/status", "description": "Current authentication status and connection info" },
+    { "uri_template": "qb://metadata", "description": "Available entities, reports, and API capabilities" },
+    { "uri_template": "qb://customers{?limit,startDate,endDate}", "description": "QuickBooks customers with optional filtering" },
+    { "uri_template": "qb://invoices{?limit,startDate,endDate}", "description": "QuickBooks invoices with optional date filtering" },
+    { "uri_template": "qb://payments{?limit,startDate,endDate}", "description": "QuickBooks payments with optional date filtering" },
+    { "uri_template": "qb://vendors{?limit,startDate,endDate}", "description": "QuickBooks vendors with optional filtering" },
+    { "uri_template": "qb://items{?limit,startDate,endDate}", "description": "QuickBooks items/products/services with optional filtering" },
+    { "uri_template": "qb://accounts{?limit,startDate,endDate}", "description": "QuickBooks chart of accounts with optional filtering" },
+    { "uri_template": "qb://bills{?limit,startDate,endDate}", "description": "QuickBooks bills with optional date filtering" },
+    { "uri_template": "qb://estimates{?limit,startDate,endDate}", "description": "QuickBooks estimates with optional date filtering" },
+    { "uri_template": "qb://employees{?limit,startDate,endDate}", "description": "QuickBooks employees with optional filtering" },
+    { "uri_template": "qb://reports/profit_and_loss{?startDate,endDate,summarizeBy,accountingMethod}", "description": "QuickBooks Profit & Loss report with customizable parameters" },
+    { "uri_template": "qb://reports/balance_sheet{?startDate,endDate,summarizeBy,accountingMethod}", "description": "QuickBooks Balance Sheet report with customizable parameters" },
+    { "uri_template": "qb://reports/cash_flow{?startDate,endDate,summarizeBy,accountingMethod}", "description": "QuickBooks Cash Flow report with customizable parameters" },
+    { "uri_template": "qb://reports/aging_summary{?startDate,endDate,summarizeBy,accountingMethod}", "description": "QuickBooks Aging Summary report with customizable parameters" }
+  ],
+  "prompts": [
+    {
+      "name": "analyze-financial-performance",
+      "description": "Guide through comprehensive financial performance analysis using P&L and Balance Sheet",
+      "text": "Financial performance analysis workflow with step-by-step guidance for revenue analysis, expense review, profitability metrics, balance sheet health, and cash flow analysis."
+    },
+    {
+      "name": "review-customer-aging",
+      "description": "Customer collections and aging analysis workflow",
+      "text": "Customer aging review and collections workflow with systematic process for aging reports, customer analysis, collections priority, and prevention strategies."
+    },
+    {
+      "name": "monthly-close-checklist",
+      "description": "End-of-month accounting close procedures and checklist",
+      "text": "Comprehensive monthly close checklist covering data entry verification, account reconciliation, adjusting entries, compliance reporting, and post-close analysis."
+    },
+    {
+      "name": "setup-quickbooks-connection",
+      "description": "Initial QuickBooks connection and configuration guidance",
+      "text": "Complete setup guide for QuickBooks connection including prerequisites, configuration steps, authentication, data exploration, and best practices."
+    },
+    {
+      "name": "analyze-sales-performance",
+      "description": "Sales performance analysis using invoice and customer data",
+      "text": "Sales performance analysis workflow covering invoice analysis, customer performance, product/service analysis, sales trends, and key performance indicators."
+    }
+  ],
+  "keywords": [ "quickbooks", "accounting", "invoices", "finance", "business" ],
+  "compatibility": {
+    "claude_desktop": ">=0.7.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=18.0.0" }
+  }
+}

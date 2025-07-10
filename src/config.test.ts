@@ -30,7 +30,7 @@ describe('Configuration Module', () => {
       if (!isConfigError(config)) {
         expect(config.isProduction).toBe(false);
         expect(config.environment).toBe('sandbox');
-        expect(config.tokenFilePath).toBe('tokens_sandbox.json');
+        expect(config.storageDir).toBeDefined();
       }
     });
     
@@ -59,44 +59,24 @@ describe('Configuration Module', () => {
       if (!isConfigError(config)) {
         expect(config.isProduction).toBe(true);
         expect(config.environment).toBe('production');
-        expect(config.tokenFilePath).toBe('tokens.json');
+        expect(config.storageDir).toBeDefined();
       }
     });
     
     it('should return error when QB_CLIENT_ID is missing', () => {
       process.env.QB_CLIENT_SECRET = 'test_secret';
       
-      const config = getConfig();
-      
-      expect(isConfigError(config)).toBe(true);
-      if (isConfigError(config)) {
-        expect(config.error).toBe('CONFIGURATION_ERROR');
-        expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
-        expect(config.details).toContain('QB_CLIENT_ID');
-      }
+      expect(() => getConfig()).toThrow('Missing required QuickBooks OAuth credentials for sandbox mode');
     });
     
     it('should return error when QB_CLIENT_SECRET is missing', () => {
       process.env.QB_CLIENT_ID = 'test_client_id';
       
-      const config = getConfig();
-      
-      expect(isConfigError(config)).toBe(true);
-      if (isConfigError(config)) {
-        expect(config.error).toBe('CONFIGURATION_ERROR');
-        expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
-        expect(config.details).toContain('QB_CLIENT_SECRET');
-      }
+      expect(() => getConfig()).toThrow('Missing required QuickBooks OAuth credentials for sandbox mode');
     });
     
     it('should return error when both credentials are missing', () => {
-      const config = getConfig();
-      
-      expect(isConfigError(config)).toBe(true);
-      if (isConfigError(config)) {
-        expect(config.error).toBe('CONFIGURATION_ERROR');
-        expect(config.message).toContain('Missing required QuickBooks OAuth credentials');
-      }
+      expect(() => getConfig()).toThrow('Missing required QuickBooks OAuth credentials for sandbox mode');
     });
     
     it('should include credentials in config when valid', () => {
@@ -116,14 +96,14 @@ describe('Configuration Module', () => {
       process.env.QB_CLIENT_ID = 'test_client_id';
       process.env.QB_CLIENT_SECRET = 'test_client_secret';
       process.env.QB_REDIRECT_URI = 'https://custom-redirect.com/cb';
-      process.env.QB_REFRESH_TOKEN = 'refresh123';
+      process.env.QB_STORAGE_DIR = '/custom/storage/path';
       
       const config = getConfig();
       
       expect(isConfigError(config)).toBe(false);
       if (!isConfigError(config)) {
         expect(config.redirectUri).toBe('https://custom-redirect.com/cb');
-        expect(config.refreshToken).toBe('refresh123');
+        expect(config.storageDir).toBe('/custom/storage/path');
       }
     });
   });
@@ -147,10 +127,22 @@ describe('Configuration Module', () => {
       expect(uri).toBe('https://127-0-0-1.sslip.io:9741/cb');
     });
 
+    it('should use custom port when provided', () => {
+      process.env.QB_PRODUCTION = 'true';
+      const uri = getRedirectUri(undefined, 9742);
+      expect(uri).toBe('https://127-0-0-1.sslip.io:9742/cb');
+    });
+
     it('should default to localhost URL when sandbox mode', () => {
       process.env.QB_PRODUCTION = 'false';
       const uri = getRedirectUri();
       expect(uri).toBe('http://localhost:9741/cb');
+    });
+
+    it('should use custom port in sandbox mode', () => {
+      process.env.QB_PRODUCTION = 'false';
+      const uri = getRedirectUri(undefined, 9743);
+      expect(uri).toBe('http://localhost:9743/cb');
     });
 
     it('should prefer config over environment', () => {

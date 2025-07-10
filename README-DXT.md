@@ -286,7 +286,7 @@ This verifies:
 ```
 quickbooks-mcp/
 ├── src/
-│   ├── server-broker.ts      # Main entry point
+│   ├── server.ts      # Main entry point
 │   ├── quickbooks-broker.ts  # Broker client wrapper
 │   ├── token-broker-client.ts # API client
 │   ├── cache-manager.ts      # Caching logic

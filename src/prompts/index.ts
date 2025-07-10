@@ -1,6 +1,6 @@
 /**
  * QuickBooks Workflow Prompts
- * 
+ *
  * User-controlled interaction templates for common QuickBooks workflows
  */
 
@@ -10,28 +10,185 @@ import { FastMCP } from 'fastmcp';
  * Register all QuickBooks workflow prompts
  */
 export function registerQuickBooksPrompts(mcp: FastMCP): void {
-  
-  // Financial Analysis Workflow
-  mcp.addPrompt({
-    name: 'analyze-financial-performance',
-    description: 'Guide through comprehensive financial performance analysis using P&L and Balance Sheet',
-    arguments: [
-      {
-        name: 'period',
-        description: 'Analysis period (e.g., "2024-Q1", "2024-01" for January, or "2024" for full year)',
-        required: true
-      },
-      {
-        name: 'comparison_period', 
-        description: 'Optional comparison period for trend analysis',
-        required: false
-      }
-    ],
-    load: async (args) => {
-      const period = args.period || 'current-year';
-      const comparison = args.comparison_period ? ` vs ${args.comparison_period}` : '';
-      
-      return `# Financial Performance Analysis${comparison}
+    // summon Tool Usage Guide
+    mcp.addPrompt({
+        name: 'summon-usage-guide',
+        description: 'Comprehensive guide for using summon tools effectively',
+        arguments: [],
+        load: async () => {
+            return `# summon QuickBooks MCP Server Usage Guide
+
+## Available Tools
+
+### 1. Authentication & Setup
+- **health_check**: Check server status and QuickBooks connection
+- **authenticate**: Connect to QuickBooks (opens browser for OAuth)
+- **clear_auth**: Disconnect from QuickBooks
+
+### 2. Company Management
+- **qb_list_companies**: List all connected QuickBooks companies
+- **qb_company_info**: Get detailed company information
+
+### 3. Data Query Tools
+- **qb_list_customers**: List customers with optional filtering
+- **qb_list_invoices**: List invoices with date filtering
+- **qb_list_payments**: List payments received
+- **qb_list_vendors**: List vendors/suppliers
+- **qb_list_items**: List products and services
+- **qb_list_accounts**: List chart of accounts
+- **qb_list_bills**: List bills/payables
+- **qb_list_estimates**: List quotes/estimates
+- **qb_list_employees**: List employees
+- **qb_list_transactions**: List purchases/expenses
+
+### 4. Reporting Tool
+- **qb_report**: Generate various QuickBooks reports
+
+## How to Use summon Tools Effectively
+
+### Step 1: Always Start with Health Check
+\`\`\`
+health_check
+\`\`\`
+This tells you:
+- If the server is running
+- If credentials are configured
+- If you're authenticated with QuickBooks
+
+### Step 2: Connect to QuickBooks (if needed)
+If not authenticated:
+\`\`\`
+authenticate
+\`\`\`
+
+### Step 3: List Available Companies
+\`\`\`
+qb_list_companies
+\`\`\`
+This shows all connected QuickBooks companies.
+
+### Step 4: Query Data with Optional Parameters
+
+#### Basic Usage (uses first company by default):
+\`\`\`
+qb_list_invoices
+{
+  "limit": 20
+}
+\`\`\`
+
+#### Specify Company Name:
+\`\`\`
+qb_list_invoices
+{
+  "companyName": "Your Company Name",
+  "limit": 50,
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31"
+}
+\`\`\`
+
+### Step 5: Generate Reports
+
+#### Profit & Loss Report:
+\`\`\`
+qb_report
+{
+  "reportType": "profit_and_loss",
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
+  "summarizeBy": "Month"
+}
+\`\`\`
+
+#### Other Report Types:
+- balance_sheet
+- cash_flow
+- trial_balance
+- customer_sales
+- aging_summary
+- inventory_summary
+
+## Common Use Cases
+
+### Finding Peak Business Periods:
+1. Generate monthly P&L report for the year
+2. Look at monthly revenue totals
+3. Identify highest revenue months
+
+\`\`\`
+qb_report
+{
+  "reportType": "profit_and_loss",
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
+  "summarizeBy": "Month"
+}
+\`\`\`
+
+### Analyzing Customer Activity:
+1. List all customers
+2. Review recent invoices
+3. Check payment history
+
+### Cash Flow Analysis:
+1. Generate cash flow report
+2. Review accounts receivable (invoices)
+3. Review accounts payable (bills)
+
+## Troubleshooting
+
+### "QuickBooks API error occurred":
+- First run qb_list_companies to see available companies
+- If using multi-company, specify companyName parameter
+- Check if authenticated with health_check
+
+### No data returned:
+- Verify date ranges are correct
+- Check if data exists in QuickBooks for that period
+- Try without date filters first
+
+### Authentication issues:
+- Run health_check to verify status
+- Use authenticate tool to reconnect
+- Check OAuth credentials are configured
+
+## Best Practices
+
+1. **Always check connection first** with health_check
+2. **List companies** if you have multiple QuickBooks accounts
+3. **Use specific date ranges** to limit data volume
+4. **Start with small limits** (e.g., limit: 10) to test
+5. **Specify company name** when you have multiple companies
+6. **Use appropriate report types** for different analyses`;
+        },
+    });
+
+    // Financial Analysis Workflow
+    mcp.addPrompt({
+        name: 'analyze-financial-performance',
+        description:
+            'Guide through comprehensive financial performance analysis using P&L and Balance Sheet',
+        arguments: [
+            {
+                name: 'period',
+                description:
+                    'Analysis period (e.g., "2024-Q1", "2024-01" for January, or "2024" for full year)',
+                required: true,
+            },
+            {
+                name: 'comparison_period',
+                description: 'Optional comparison period for trend analysis',
+                required: false,
+            },
+        ],
+        load: async (args) => {
+            const period = args.period || 'current-year';
+            const comparison = args.comparison_period
+                ? ` vs ${args.comparison_period}`
+                : '';
+
+            return `# Financial Performance Analysis${comparison}
 
 ## Analysis Checklist for ${period}
 
@@ -41,7 +198,7 @@ export function registerQuickBooksPrompts(mcp: FastMCP): void {
 - Compare to budget/previous period
 - Identify top revenue sources
 
-### 2. Expense Review  
+### 2. Expense Review
 - Break down expense categories from P&L
 - Calculate expense ratios (% of revenue)
 - Identify unusual or significant changes
@@ -74,24 +231,25 @@ export function registerQuickBooksPrompts(mcp: FastMCP): void {
 5. What opportunities exist for improvement?
 
 **Next Steps**: Based on analysis, identify action items for improvement and set targets for next period.`;
-    }
-  });
+        },
+    });
 
-  // Customer Management Workflow
-  mcp.addPrompt({
-    name: 'review-customer-aging',
-    description: 'Customer collections and aging analysis workflow',
-    arguments: [
-      {
-        name: 'aging_threshold',
-        description: 'Days threshold for aged receivables (default: 30)',
-        required: false
-      }
-    ],
-    load: async (args) => {
-      const threshold = args.aging_threshold || '30';
-      
-      return `# Customer Aging Review & Collections Workflow
+    // Customer Management Workflow
+    mcp.addPrompt({
+        name: 'review-customer-aging',
+        description: 'Customer collections and aging analysis workflow',
+        arguments: [
+            {
+                name: 'aging_threshold',
+                description:
+                    'Days threshold for aged receivables (default: 30)',
+                required: false,
+            },
+        ],
+        load: async (args) => {
+            const threshold = args.aging_threshold || '30';
+
+            return `# Customer Aging Review & Collections Workflow
 
 ## Step-by-Step Process
 
@@ -135,24 +293,24 @@ export function registerQuickBooksPrompts(mcp: FastMCP): void {
 - Monitor aging trends monthly
 
 **Goal**: Reduce aged receivables and improve cash flow through systematic collections management.`;
-    }
-  });
+        },
+    });
 
-  // Monthly Close Process
-  mcp.addPrompt({
-    name: 'monthly-close-checklist',
-    description: 'End-of-month accounting close procedures and checklist',
-    arguments: [
-      {
-        name: 'month',
-        description: 'Month being closed (YYYY-MM format)',
-        required: true
-      }
-    ],
-    load: async (args) => {
-      const month = args.month || new Date().toISOString().slice(0, 7);
-      
-      return `# Monthly Close Checklist - ${month}
+    // Monthly Close Process
+    mcp.addPrompt({
+        name: 'monthly-close-checklist',
+        description: 'End-of-month accounting close procedures and checklist',
+        arguments: [
+            {
+                name: 'month',
+                description: 'Month being closed (YYYY-MM format)',
+                required: true,
+            },
+        ],
+        load: async (args) => {
+            const month = args.month || new Date().toISOString().slice(0, 7);
+
+            return `# Monthly Close Checklist - ${month}
 
 ## Pre-Close Preparation
 
@@ -209,16 +367,16 @@ export function registerQuickBooksPrompts(mcp: FastMCP): void {
 - [ ] Prepare management reports
 
 **Timeline Goal**: Complete close within 5-7 business days of month-end.`;
-    }
-  });
+        },
+    });
 
-  // QuickBooks Setup Guidance
-  mcp.addPrompt({
-    name: 'setup-quickbooks-connection',
-    description: 'Initial QuickBooks connection and configuration guidance',
-    arguments: [],
-    load: async () => {
-      return `# QuickBooks Connection Setup Guide
+    // QuickBooks Setup Guidance
+    mcp.addPrompt({
+        name: 'setup-quickbooks-connection',
+        description: 'Initial QuickBooks connection and configuration guidance',
+        arguments: [],
+        load: async () => {
+            return `# QuickBooks Connection Setup Guide
 
 ## Initial Connection
 
@@ -280,24 +438,26 @@ export function registerQuickBooksPrompts(mcp: FastMCP): void {
 - Keep software updated
 
 **Next Steps**: Once connected, explore specific workflows using other available prompts for financial analysis, customer management, and monthly closing procedures.`;
-    }
-  });
+        },
+    });
 
-  // Invoice Analysis Workflow
-  mcp.addPrompt({
-    name: 'analyze-sales-performance',
-    description: 'Sales performance analysis using invoice and customer data',
-    arguments: [
-      {
-        name: 'period',
-        description: 'Analysis period (e.g., "2024-Q1", "last-30-days")',
-        required: true
-      }
-    ],
-    load: async (args) => {
-      const period = args.period || 'current-month';
-      
-      return `# Sales Performance Analysis - ${period}
+    // Invoice Analysis Workflow
+    mcp.addPrompt({
+        name: 'analyze-sales-performance',
+        description:
+            'Sales performance analysis using invoice and customer data',
+        arguments: [
+            {
+                name: 'period',
+                description:
+                    'Analysis period (e.g., "2024-Q1", "last-30-days")',
+                required: true,
+            },
+        ],
+        load: async (args) => {
+            const period = args.period || 'current-month';
+
+            return `# Sales Performance Analysis - ${period}
 
 ## Revenue Analysis Workflow
 
@@ -356,6 +516,6 @@ export function registerQuickBooksPrompts(mcp: FastMCP): void {
 - Optimize product mix
 
 **Outcome**: Data-driven insights to improve sales performance and strategic decision-making.`;
-    }
-  });
+        },
+    });
 }

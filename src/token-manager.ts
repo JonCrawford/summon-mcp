@@ -11,6 +11,7 @@
 import { TokenStorage, TokenData } from './token-storage.js';
 import OAuthClient from 'intuit-oauth';
 import { getRedirectUri } from './config.js';
+import { ConfigurationError, TokenError, ErrorFactory } from './errors/index.js';
 
 export interface TokenManagerConfig {
   clientId: string;
@@ -26,14 +27,24 @@ function debugLog(message: string, data?: any) {
 }
 
 export class TokenManager {
-  private tokenStorage: TokenStorage;
+  private tokenStorage: TokenStorage | null = null;
   private oauthClient: OAuthClient | null = null;
   private refreshPromise: Promise<TokenData> | null = null;
   private tokenCache: TokenData | null = null;
   private cacheExpiry: number = 0;
 
   constructor() {
-    this.tokenStorage = new TokenStorage();
+    // TokenStorage will be initialized lazily to avoid sync sql.js init
+  }
+
+  /**
+   * Get or initialize TokenStorage
+   */
+  private async getTokenStorage(): Promise<TokenStorage> {
+    if (!this.tokenStorage) {
+      this.tokenStorage = new TokenStorage();
+    }
+    return this.tokenStorage;
   }
 
   /**
@@ -55,10 +66,18 @@ export class TokenManager {
   /**
    * Get configuration from environment
    */
-  private getConfig(): TokenManagerConfig {
-    const credentials = this.tokenStorage.getOAuthCredentials();
+  private async getConfig(): Promise<TokenManagerConfig> {
+    const tokenStorage = await this.getTokenStorage();
+    const credentials = tokenStorage.getOAuthCredentials();
     if (!credentials.clientId || !credentials.clientSecret) {
-      throw new Error('OAuth credentials not configured. Please set QB_CLIENT_ID and QB_CLIENT_SECRET.');
+      throw new ConfigurationError(
+        'OAuth credentials not configured. Please set QB_CLIENT_ID and QB_CLIENT_SECRET.',
+        undefined,
+        {
+          hasClientId: !!credentials.clientId,
+          hasClientSecret: !!credentials.clientSecret
+        }
+      );
     }
 
     return {
@@ -73,7 +92,8 @@ export class TokenManager {
    * Check if we have a refresh token available
    */
   async hasRefreshToken(companyName?: string): Promise<boolean> {
-    const tokenData = await this.tokenStorage.loadRefreshToken(companyName);
+    const tokenStorage = await this.getTokenStorage();
+    const tokenData = await tokenStorage.loadRefreshToken(companyName);
     return !!(tokenData?.refreshToken);
   }
 
@@ -87,9 +107,15 @@ export class TokenManager {
     }
 
     // Load token data
-    const tokenData = await this.tokenStorage.loadRefreshToken(companyName);
+    const tokenStorage = await this.getTokenStorage();
+    const tokenData = await tokenStorage.loadRefreshToken(companyName);
     if (!tokenData?.refreshToken) {
-      throw new Error(`No refresh token available for company "${companyName || 'default'}". Please authenticate first.`);
+      throw new TokenError(
+        `No refresh token available for company "${companyName || 'default'}". Please authenticate first.`,
+        false,
+        undefined,
+        { companyName }
+      );
     }
 
     // Check if access token is still valid (with 5 min buffer)
@@ -121,7 +147,7 @@ export class TokenManager {
    */
   private async refreshAccessToken(tokenData: TokenData): Promise<TokenData> {
     try {
-      const config = this.getConfig();
+      const config = await this.getConfig();
       const client = this.initOAuthClient(config);
 
       // Set current tokens on client
@@ -143,7 +169,8 @@ export class TokenManager {
       };
 
       // Save the refreshed tokens
-      await this.tokenStorage.saveRefreshToken(refreshedData);
+      const tokenStorage = await this.getTokenStorage();
+      await tokenStorage.saveRefreshToken(refreshedData);
 
       // Update cache
       this.tokenCache = refreshedData;
@@ -151,13 +178,16 @@ export class TokenManager {
 
       return refreshedData;
     } catch (error: any) {
-      // Check if refresh token is expired
+      // Convert OAuth errors to standardized error types
+      const standardError = ErrorFactory.fromOAuth(error, 'refresh_token');
+      
+      // For expired refresh tokens, clear tokens and force re-authentication
       if (error.authResponse?.response?.error === 'invalid_grant') {
-        // Clear tokens and force re-authentication
-        await this.tokenStorage.clearTokens();
-        throw new Error('Refresh token expired. Please reconnect to QuickBooks.');
+        const tokenStorage = await this.getTokenStorage();
+        await tokenStorage.clearTokens();
       }
-      throw error;
+      
+      throw standardError;
     }
   }
 
@@ -183,7 +213,8 @@ export class TokenManager {
     });
 
     console.error('TokenManager.saveTokens: Calling tokenStorage.saveRefreshToken...');
-    await this.tokenStorage.saveRefreshToken(tokenData);
+    const tokenStorage = await this.getTokenStorage();
+    await tokenStorage.saveRefreshToken(tokenData);
     console.error('TokenManager.saveTokens: Token storage complete');
     
     // Clear cache to force reload
@@ -195,14 +226,16 @@ export class TokenManager {
    * Get full token data (for displaying to user after OAuth)
    */
   async getTokenData(companyName?: string): Promise<TokenData | null> {
-    return await this.tokenStorage.loadRefreshToken(companyName);
+    const tokenStorage = await this.getTokenStorage();
+    return await tokenStorage.loadRefreshToken(companyName);
   }
 
   /**
    * Get current token metadata
    */
   async getTokenMetadata(companyName?: string): Promise<{ realmId?: string; companyName?: string } | null> {
-    const tokenData = await this.tokenStorage.loadRefreshToken(companyName);
+    const tokenStorage = await this.getTokenStorage();
+    const tokenData = await tokenStorage.loadRefreshToken(companyName);
     if (!tokenData) return null;
 
     return {
@@ -215,14 +248,16 @@ export class TokenManager {
    * List all companies
    */
   async listCompanies(): Promise<string[]> {
-    return await this.tokenStorage.listCompanies();
+    const tokenStorage = await this.getTokenStorage();
+    return await tokenStorage.listCompanies();
   }
 
   /**
    * Clear tokens for a specific company or all companies
    */
   async clearTokens(companyName?: string): Promise<void> {
-    await this.tokenStorage.clearTokens(companyName);
+    const tokenStorage = await this.getTokenStorage();
+    await tokenStorage.clearTokens(companyName);
     // Clear cache if it matches the company being cleared
     if (!companyName || this.tokenCache?.companyName === companyName) {
       this.tokenCache = null;
@@ -234,8 +269,8 @@ export class TokenManager {
   /**
    * Generate OAuth authorization URL
    */
-  generateAuthUrl(state: string, redirectUri?: string): string {
-    const config = this.getConfig();
+  async generateAuthUrl(state: string, redirectUri?: string): Promise<string> {
+    const config = await this.getConfig();
     const client = this.initOAuthClient({ ...config, redirectUri });
 
     return client.authorizeUri({
@@ -247,13 +282,13 @@ export class TokenManager {
   /**
    * Exchange authorization code for tokens
    */
-  async exchangeCodeForTokens(code: string, realmId: string): Promise<void> {
+  async exchangeCodeForTokens(code: string, realmId: string): Promise<TokenData> {
     debugLog('TokenManager: Starting token exchange...', { 
       codePreview: code.substring(0, 10) + '...', 
       realmId 
     });
     
-    const config = this.getConfig();
+    const config = await this.getConfig();
     debugLog('TokenManager: Config', {
       clientIdPreview: config.clientId.substring(0, 10) + '...',
       isProduction: config.isProduction
@@ -297,6 +332,15 @@ export class TokenManager {
       console.error('TokenManager: Saving tokens...');
       await this.saveTokens(tokenData, realmId, companyName);
       console.error('TokenManager: Tokens saved successfully!');
+      
+      // Return the actual token data that was just saved
+      return {
+        refreshToken: tokenData.refresh_token,
+        accessToken: tokenData.access_token,
+        expiresAt: Date.now() + (tokenData.expires_in * 1000),
+        realmId: realmId,
+        companyName: companyName
+      };
     } catch (error: any) {
       debugLog('TokenManager: Token exchange error', {
         message: error.message,
@@ -305,7 +349,9 @@ export class TokenManager {
         data: error.response?.data,
         stack: error.stack
       });
-      throw error;
+      
+      // Convert OAuth errors to standardized error types
+      throw ErrorFactory.fromOAuth(error, 'exchange_code_for_tokens');
     }
   }
 }

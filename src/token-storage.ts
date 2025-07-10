@@ -1,20 +1,13 @@
 /**
- * Token Storage Strategy
+ * Token Storage V2 - SQLite-based implementation
  * 
- * Handles token storage across three environments:
- * 1. Local development - File storage
- * 2. Claude Desktop (non-DXT) - OS Keychain if available, else file storage
- * 3. DXT packaged - dxt.saveConfig() when available
+ * Simplified storage strategy using SQLite database for all environments
  */
 
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { TokenDatabase, TokenData as DBTokenData, CompanyInfo } from './token-database.js';
+import { getConfig } from './config.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Token storage interface
+// Token storage interface (same as original for compatibility)
 export interface TokenData {
   refreshToken: string;
   accessToken?: string;
@@ -23,349 +16,206 @@ export interface TokenData {
   companyName?: string;
 }
 
-// Multi-company token storage
-export interface CompanyTokens {
-  [companyName: string]: TokenData;
-}
-
-// DXT runtime interface
-interface DxtRuntime {
-  saveConfig?: (config: Record<string, any>) => Promise<void>;
-}
-
-declare global {
-  var dxt: DxtRuntime | undefined;
-}
-
-// Storage strategy detection
+// Storage strategy using SQLite
 export class TokenStorage {
-  private isProduction: boolean;
-  private tokenFilePath: string;
+  private db: TokenDatabase | null = null;
   
-  constructor() {
-    this.isProduction = process.env.QB_PRODUCTION === 'true';
-    const tokenFileName = this.isProduction ? 'tokens.json' : 'tokens_sandbox.json';
-    this.tokenFilePath = path.resolve(__dirname, '..', tokenFileName);
-  }
-
   /**
-   * Detect available storage methods
+   * Get or create database instance
    */
-  private getStorageCapabilities() {
-    return {
-      hasDxtSaveConfig: typeof globalThis.dxt?.saveConfig === 'function',
-      hasEnvTokens: !!(process.env.QB_REFRESH_TOKEN || process.env.QB_COMPANIES),
-      hasKeychain: false, // TODO: Implement keychain detection
-      hasFileSystem: !process.env.DXT_ENVIRONMENT && !process.env.QUICKBOOKS_NO_FILE_LOGGING // Disable file system in DXT
-    };
+  private async getDatabase(): Promise<TokenDatabase> {
+    if (!this.db) {
+      const config = getConfig();
+      this.db = new TokenDatabase(config.storageDir);
+      await this.db.init();
+    }
+    return this.db;
   }
-
+  
   /**
-   * Save refresh token using the best available method
+   * Save refresh token and related data
    */
   async saveRefreshToken(tokenData: TokenData): Promise<void> {
-    console.error('TokenStorage.saveRefreshToken: Starting save...');
-    const capabilities = this.getStorageCapabilities();
-    console.error('TokenStorage.saveRefreshToken: Capabilities:', capabilities);
-    
-    const companyName = tokenData.companyName || 'Default Company';
-    
-    // Priority 1: DXT saveConfig (when in DXT environment)
-    if (capabilities.hasDxtSaveConfig && globalThis.dxt?.saveConfig) {
-      console.error('TokenStorage.saveRefreshToken: Using DXT saveConfig for multi-tenant storage');
-      try {
-        // Load existing companies
-        let companies: CompanyTokens = {};
-        if (process.env.QB_COMPANIES) {
-          try {
-            companies = JSON.parse(process.env.QB_COMPANIES);
-          } catch (e) {
-            console.error('Failed to parse existing QB_COMPANIES:', e);
-          }
-        }
-        
-        // Update company data
-        companies[companyName] = {
-          refreshToken: tokenData.refreshToken,
-          accessToken: tokenData.accessToken,
-          expiresAt: tokenData.expiresAt,
-          realmId: tokenData.realmId,
-          companyName: companyName
-        };
-        
-        // Save the entire companies object
-        await globalThis.dxt.saveConfig({
-          qb_companies: JSON.stringify(companies)
-        });
-        
-        console.error(`TokenStorage.saveRefreshToken: Saved company "${companyName}" via DXT`);
-        return;
-      } catch (error) {
-        console.error('Failed to save via dxt.saveConfig:', error);
-      }
+    if (!tokenData.realmId) {
+      throw new Error('realmId is required for token storage');
     }
     
-    // Priority 2: OS Keychain (future implementation)
-    // if (capabilities.hasKeychain) {
-    //   await this.saveToKeychain(tokenData);
-    //   return;
-    // }
+    const db = await this.getDatabase();
     
-    // Priority 3: File system (current default)
-    if (capabilities.hasFileSystem) {
-      console.error('TokenStorage.saveRefreshToken: Using file system storage');
-      await this.saveToFile(tokenData);
-      console.error('TokenStorage.saveRefreshToken: Save complete');
-    }
+    const dbTokenData: DBTokenData = {
+      realmId: tokenData.realmId,
+      companyName: tokenData.companyName || 'QuickBooks Company',
+      accessToken: tokenData.accessToken || '',
+      refreshToken: tokenData.refreshToken,
+      expiresAt: tokenData.expiresAt || 0
+    };
+    
+    await db.saveToken(dbTokenData);
+    
+    console.error(`TokenStorage: Saved company "${dbTokenData.companyName}" (${dbTokenData.realmId})`);
   }
-
+  
   /**
-   * Load refresh token using the best available method
+   * Load refresh token by company name or realm ID
    */
-  async loadRefreshToken(companyName?: string): Promise<TokenData | null> {
-    const capabilities = this.getStorageCapabilities();
+  async loadRefreshToken(companyNameOrRealmId?: string): Promise<TokenData | null> {
+    const db = await this.getDatabase();
     
-    // Priority 1: Multi-company environment variable (DXT)
-    if (capabilities.hasEnvTokens && process.env.QB_COMPANIES) {
-      try {
-        const companies: CompanyTokens = JSON.parse(process.env.QB_COMPANIES);
-        if (companyName && companies[companyName]) {
-          return companies[companyName];
-        }
-        // Return first company if no name specified
-        const firstCompany = Object.values(companies)[0];
-        return firstCompany || null;
-      } catch (error) {
-        console.error('Failed to parse QB_COMPANIES:', error);
+    if (companyNameOrRealmId) {
+      // Try to load by realm ID first (more specific)
+      let dbToken = await db.loadToken(companyNameOrRealmId);
+      
+      // If not found, try by company name
+      if (!dbToken) {
+        dbToken = await db.loadTokenByCompanyName(companyNameOrRealmId);
       }
-    }
-    
-    // Priority 2: Single company environment variable (legacy)
-    if (capabilities.hasEnvTokens && process.env.QB_REFRESH_TOKEN) {
-      return {
-        refreshToken: process.env.QB_REFRESH_TOKEN,
-        accessToken: process.env.QB_ACCESS_TOKEN,
-        expiresAt: process.env.QB_TOKEN_EXPIRES ? parseInt(process.env.QB_TOKEN_EXPIRES) : undefined,
-        realmId: process.env.QB_REALM_ID,
-        companyName: process.env.QB_COMPANY_NAME || 'Default Company'
-      };
-    }
-    
-    // Priority 3: OS Keychain (future implementation)
-    // if (capabilities.hasKeychain) {
-    //   const data = await this.loadFromKeychain();
-    //   if (data) return data;
-    // }
-    
-    // Priority 4: File system (not available in DXT)
-    if (capabilities.hasFileSystem) {
-      return await this.loadFromFile(companyName);
+      
+      if (dbToken) {
+        return this.dbTokenToTokenData(dbToken);
+      }
+    } else {
+      // No specific company requested, return first available
+      const companies = await db.listCompanies();
+      if (companies.length > 0) {
+        const dbToken = await db.loadToken(companies[0].realmId);
+        if (dbToken) {
+          return this.dbTokenToTokenData(dbToken);
+        }
+      }
     }
     
     return null;
   }
-
+  
   /**
    * Clear stored tokens for a specific company or all companies
    */
-  async clearTokens(companyName?: string): Promise<void> {
-    const capabilities = this.getStorageCapabilities();
+  async clearTokens(companyNameOrRealmId?: string): Promise<void> {
+    const db = await this.getDatabase();
     
-    // Clear from DXT if available
-    if (capabilities.hasDxtSaveConfig && globalThis.dxt?.saveConfig) {
-      try {
-        if (companyName) {
-          // Clear specific company
-          let companies: CompanyTokens = {};
-          if (process.env.QB_COMPANIES) {
-            try {
-              companies = JSON.parse(process.env.QB_COMPANIES);
-              delete companies[companyName];
-            } catch (e) {
-              console.error('Failed to parse QB_COMPANIES:', e);
-            }
-          }
-          await globalThis.dxt.saveConfig({
-            qb_companies: JSON.stringify(companies)
-          });
-        } else {
-          // Clear all companies
-          await globalThis.dxt.saveConfig({
-            qb_companies: ''
-          });
-        }
-      } catch (error) {
-        console.error('Failed to clear via dxt.saveConfig:', error);
+    if (companyNameOrRealmId) {
+      // Try to find by realm ID first
+      let dbToken = await db.loadToken(companyNameOrRealmId);
+      
+      // If not found, try by company name
+      if (!dbToken) {
+        dbToken = await db.loadTokenByCompanyName(companyNameOrRealmId);
       }
-    }
-    
-    // Clear from file if available
-    if (capabilities.hasFileSystem) {
-      try {
-        if (companyName) {
-          // Clear specific company from file
-          const allData = await this.loadAllFromFile();
-          delete allData[companyName];
-          if (Object.keys(allData).length > 0) {
-            await fs.writeFile(this.tokenFilePath, JSON.stringify(allData, null, 2), 'utf-8');
-          } else {
-            await fs.unlink(this.tokenFilePath);
-          }
-        } else {
-          // Clear all
-          await fs.unlink(this.tokenFilePath);
-        }
-      } catch (error) {
-        // File might not exist
+      
+      if (dbToken) {
+        await db.deleteToken(dbToken.realmId);
+      }
+    } else {
+      // Clear all companies
+      const companies = await db.listCompanies();
+      for (const company of companies) {
+        await db.deleteToken(company.realmId);
       }
     }
   }
-
+  
   /**
    * List all connected companies
    */
   async listCompanies(): Promise<string[]> {
-    const capabilities = this.getStorageCapabilities();
-    
-    // Check multi-company environment variable
-    if (capabilities.hasEnvTokens && process.env.QB_COMPANIES) {
-      try {
-        const companies: CompanyTokens = JSON.parse(process.env.QB_COMPANIES);
-        return Object.keys(companies);
-      } catch (error) {
-        console.error('Failed to parse QB_COMPANIES:', error);
-      }
-    }
-    
-    // Check single company environment variable
-    if (capabilities.hasEnvTokens && process.env.QB_REFRESH_TOKEN) {
-      const companyName = process.env.QB_COMPANY_NAME || 'Default Company';
-      return [companyName];
-    }
-    
-    // Check file system
-    if (capabilities.hasFileSystem) {
-      const companies = await this.loadAllFromFile();
-      return Object.keys(companies);
-    }
-    
-    return [];
+    const db = await this.getDatabase();
+    const companies = await db.listCompanies();
+    return companies.map(c => c.companyName);
   }
-
+  
   /**
-   * File-based storage (with optional encryption)
+   * Get detailed company information (for LLM context)
    */
-  private async saveToFile(tokenData: TokenData): Promise<void> {
-    // Skip file operations in DXT environment
-    if (process.env.DXT_ENVIRONMENT || process.env.QUICKBOOKS_NO_FILE_LOGGING) {
-      console.error('TokenStorage.saveToFile: Skipping file write in DXT/read-only environment');
-      return;
-    }
-
-    console.error(`TokenStorage.saveToFile: Saving to ${this.tokenFilePath}`);
-    
-    // Load existing data for multi-company support
-    let allData: CompanyTokens = {};
-    try {
-      const existing = await fs.readFile(this.tokenFilePath, 'utf-8');
-      allData = JSON.parse(existing);
-    } catch (error) {
-      // File doesn't exist or is invalid, start fresh
-    }
-    
-    // Update company data
-    const companyName = tokenData.companyName || 'Default Company';
-    allData[companyName] = {
-      ...tokenData,
-      savedAt: new Date().toISOString()
-    } as TokenData & { savedAt: string };
-    
-    console.error('TokenStorage.saveToFile: Token data to save:', {
-      companyName,
-      hasRefreshToken: !!tokenData.refreshToken,
-      hasAccessToken: !!tokenData.accessToken,
-      realmId: tokenData.realmId
-    });
-    
-    try {
-      // TODO: Add encryption for file storage
-      await fs.writeFile(
-        this.tokenFilePath,
-        JSON.stringify(allData, null, 2),
-        'utf-8'
-      );
-      console.error('TokenStorage.saveToFile: File written successfully');
-      
-      // Verify file was written
-      const stats = await fs.stat(this.tokenFilePath);
-      console.error(`TokenStorage.saveToFile: File size: ${stats.size} bytes`);
-    } catch (error: any) {
-      console.error('TokenStorage.saveToFile: Write error:', error);
-      throw error;
-    }
+  async getCompanyInfo(): Promise<CompanyInfo[]> {
+    const db = await this.getDatabase();
+    return db.listCompanies();
   }
-
+  
   /**
-   * Load from file storage
+   * Check if we have any tokens stored
    */
-  private async loadFromFile(companyName?: string): Promise<TokenData | null> {
-    try {
-      const data = await fs.readFile(this.tokenFilePath, 'utf-8');
-      const parsed = JSON.parse(data);
-      
-      // Handle multi-company format
-      if (parsed && typeof parsed === 'object' && !parsed.refreshToken) {
-        // This is multi-company format
-        if (companyName && parsed[companyName]) {
-          return parsed[companyName];
-        }
-        // Return first company if no name specified
-        const firstCompany = Object.values(parsed)[0] as TokenData;
-        return firstCompany || null;
-      }
-      
-      // Legacy single company format
-      return parsed;
-    } catch (error) {
-      return null;
-    }
+  async hasTokens(): Promise<boolean> {
+    const db = await this.getDatabase();
+    return db.hasTokens();
   }
-
+  
   /**
-   * Load all companies from file storage
+   * Convert database token format to legacy format
    */
-  private async loadAllFromFile(): Promise<CompanyTokens> {
-    try {
-      const data = await fs.readFile(this.tokenFilePath, 'utf-8');
-      const parsed = JSON.parse(data);
-      
-      // Handle multi-company format
-      if (parsed && typeof parsed === 'object' && !parsed.refreshToken) {
-        return parsed;
-      }
-      
-      // Legacy single company format
-      const companyName = parsed.companyName || 'Default Company';
-      return { [companyName]: parsed };
-    } catch (error) {
-      return {};
+  private dbTokenToTokenData(dbToken: DBTokenData): TokenData {
+    return {
+      refreshToken: dbToken.refreshToken,
+      accessToken: dbToken.accessToken,
+      expiresAt: dbToken.expiresAt,
+      realmId: dbToken.realmId,
+      companyName: dbToken.companyName
+    };
+  }
+  
+  /**
+   * Close database connection
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
     }
   }
-
+  
   /**
    * Check if we have valid credentials to attempt OAuth
    */
   hasOAuthCredentials(): boolean {
-    return !!(process.env.QB_CLIENT_ID && process.env.QB_CLIENT_SECRET);
+    const isDXT = process.env.DXT_ENVIRONMENT === 'true';
+    
+    if (isDXT) {
+      // In DXT, only check standard credential names
+      return !!(process.env.QB_CLIENT_ID && process.env.QB_CLIENT_SECRET);
+    }
+    
+    // In non-DXT environments, check all possible credential combinations
+    const hasQB = !!(process.env.QB_CLIENT_ID && process.env.QB_CLIENT_SECRET);
+    const hasIntuit = !!(process.env.INTUIT_CLIENT_ID && process.env.INTUIT_CLIENT_SECRET);
+    const hasQBProd = !!(process.env.QB_CLIENT_ID_PRODUCTION && process.env.QB_CLIENT_SECRET_PRODUCTION);
+    const hasIntuitProd = !!(process.env.INTUIT_CLIENT_ID_PRODUCTION && process.env.INTUIT_CLIENT_SECRET_PRODUCTION);
+    return hasQB || hasIntuit || hasQBProd || hasIntuitProd;
   }
-
+  
   /**
    * Get OAuth credentials from environment
    */
   getOAuthCredentials() {
+    const isProduction = process.env.QB_PRODUCTION === 'true' || process.env.QUICKBOOKS_PRODUCTION === 'true';
+    const isDXT = process.env.DXT_ENVIRONMENT === 'true';
+    
+    let clientId: string = '';
+    let clientSecret: string = '';
+    
+    if (isDXT) {
+      // DXT always uses standard credential names
+      clientId = process.env.QB_CLIENT_ID || '';
+      clientSecret = process.env.QB_CLIENT_SECRET || '';
+    } else if (isProduction) {
+      // In production (non-DXT), check production-specific credentials first
+      clientId = process.env.QB_CLIENT_ID_PRODUCTION || 
+                 process.env.INTUIT_CLIENT_ID_PRODUCTION ||
+                 process.env.QB_CLIENT_ID || 
+                 process.env.INTUIT_CLIENT_ID || '';
+      clientSecret = process.env.QB_CLIENT_SECRET_PRODUCTION || 
+                     process.env.INTUIT_CLIENT_SECRET_PRODUCTION ||
+                     process.env.QB_CLIENT_SECRET || 
+                     process.env.INTUIT_CLIENT_SECRET || '';
+    } else {
+      // In sandbox, use standard credentials
+      clientId = process.env.QB_CLIENT_ID || 
+                 process.env.INTUIT_CLIENT_ID || '';
+      clientSecret = process.env.QB_CLIENT_SECRET || 
+                     process.env.INTUIT_CLIENT_SECRET || '';
+    }
+    
     return {
-      clientId: process.env.QB_CLIENT_ID || '',
-      clientSecret: process.env.QB_CLIENT_SECRET || ''
+      clientId,
+      clientSecret
     };
   }
 }

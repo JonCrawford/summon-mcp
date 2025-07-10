@@ -6,7 +6,7 @@
  */
 
 import { FastMCP } from 'fastmcp';
-import { getQBOClient, listCompanies, clearClientCache } from '../quickbooks-broker.js';
+import { getQBOClient, listCompanies, clearClientCache } from '../quickbooks-broker-adapter.js';
 import { entities } from '../tools/entities.js';
 import { reportTypes } from './report-types.js';
 
@@ -71,7 +71,7 @@ async function handleTokenRefresh(
 /**
  * Generic QuickBooks entity resource handler
  */
-async function handleEntityResource(entity: string, params: URLSearchParams): Promise<string> {
+async function handleEntityResource(entity: string, params: URLSearchParams, realmId?: string): Promise<string> {
   try {
     // Find the entity configuration
     const entityConfig = entities.find(e => e.name === entity);
@@ -80,7 +80,7 @@ async function handleEntityResource(entity: string, params: URLSearchParams): Pr
     }
 
     // Get authenticated QuickBooks client
-    const qbo = await getQBOClient();
+    const qbo = await getQBOClient(realmId);
     
     // Build query parameters
     const queryParams: any = {
@@ -137,9 +137,9 @@ async function handleEntityResource(entity: string, params: URLSearchParams): Pr
 /**
  * Handle company info resource
  */
-async function handleCompanyInfoResource(): Promise<string> {
+async function handleCompanyInfoResource(realmId?: string): Promise<string> {
   try {
-    const qbo = await getQBOClient();
+    const qbo = await getQBOClient(realmId);
     
     return new Promise(async (resolve, reject) => {
       const executeCall = (qboClient: any) => {
@@ -180,14 +180,14 @@ async function handleCompaniesResource(): Promise<string> {
 /**
  * Handle report resources
  */
-async function handleReportResource(reportType: string, params: URLSearchParams): Promise<string> {
+async function handleReportResource(reportType: string, params: URLSearchParams, realmId?: string): Promise<string> {
   try {
     // Validate report type
     if (!(reportType in reportTypes)) {
       throw new Error(`Unknown report type: ${reportType}. Available: ${Object.keys(reportTypes).join(', ')}`);
     }
 
-    const qbo = await getQBOClient();
+    const qbo = await getQBOClient(realmId);
     
     // Get the SDK method name
     const sdkMethodName = reportTypes[reportType as keyof typeof reportTypes];
@@ -252,25 +252,31 @@ export function registerQuickBooksResources(mcp: FastMCP): void {
     })
   });
 
-  // Register company info resource  
-  mcp.addResource({
+  // Register company info resource template
+  mcp.addResourceTemplate({
     name: 'Company Information',
     description: 'QuickBooks company information and settings',
-    uri: 'qb://company/info',
+    uriTemplate: 'qb://company/info{?realmId}',
     mimeType: 'application/json',
-    load: async () => ({
-      text: await handleCompanyInfoResource()
-    })
+    arguments: [
+      { name: 'realmId', description: 'Realm ID of the QuickBooks company (defaults to first available)', required: false }
+    ],
+    load: async (args) => {
+      return {
+        text: await handleCompanyInfoResource((args as any).realmId)
+      };
+    }
   });
 
   // Register entity resources for each QuickBooks entity
   entities.forEach(entity => {
     mcp.addResourceTemplate({
       name: `QuickBooks ${entity.name.charAt(0).toUpperCase() + entity.name.slice(1)}`,
-      description: `${entity.description} - supports limit, startDate, and endDate parameters`,
-      uriTemplate: `qb://${entity.name}{?limit,startDate,endDate}`,
+      description: `${entity.description}`,
+      uriTemplate: `qb://${entity.name}{?companyName,limit,startDate,endDate}`,
       mimeType: 'application/json',
       arguments: [
+        { name: 'realmId', description: 'Realm ID of the QuickBooks company (defaults to first available)', required: false },
         { name: 'limit', description: 'Maximum number of records to return', required: false },
         { name: 'startDate', description: 'Start date for filtering (YYYY-MM-DD)', required: false },
         { name: 'endDate', description: 'End date for filtering (YYYY-MM-DD)', required: false }
@@ -279,10 +285,13 @@ export function registerQuickBooksResources(mcp: FastMCP): void {
         // Convert args to URLSearchParams for compatibility
         const params = new URLSearchParams();
         Object.entries(args).forEach(([key, value]) => {
-          if (value !== undefined) {
+          if (value !== undefined && key !== 'realmId') {
             params.set(key, value);
           }
         });
+        
+        // TODO: Update handleEntityResource to accept company name
+        // For now, it will use the first available company
         return {
           text: await handleEntityResource(entity.name, params)
         };
@@ -294,10 +303,11 @@ export function registerQuickBooksResources(mcp: FastMCP): void {
   Object.keys(reportTypes).forEach(reportType => {
     mcp.addResourceTemplate({
       name: `${reportType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Report`,
-      description: `QuickBooks ${reportType} report - supports date filtering and reporting options`,
-      uriTemplate: `qb://reports/${reportType}{?startDate,endDate,summarizeBy,accountingMethod}`,
+      description: `QuickBooks ${reportType} report`,
+      uriTemplate: `qb://reports/${reportType}{?companyName,startDate,endDate,summarizeBy,accountingMethod}`,
       mimeType: 'application/json',
       arguments: [
+        { name: 'realmId', description: 'Realm ID of the QuickBooks company (defaults to first available)', required: false },
         { name: 'startDate', description: 'Start date for the report (YYYY-MM-DD)', required: false },
         { name: 'endDate', description: 'End date for the report (YYYY-MM-DD)', required: false },
         { name: 'summarizeBy', description: 'How to summarize the report (Month, Week, Day)', required: false },
@@ -307,12 +317,13 @@ export function registerQuickBooksResources(mcp: FastMCP): void {
         // Convert args to URLSearchParams for compatibility
         const params = new URLSearchParams();
         Object.entries(args).forEach(([key, value]) => {
-          if (value !== undefined) {
+          if (value !== undefined && key !== 'realmId') {
             params.set(key, value);
           }
         });
+        
         return {
-          text: await handleReportResource(reportType, params)
+          text: await handleReportResource(reportType, params, args.realmId)
         };
       }
     });

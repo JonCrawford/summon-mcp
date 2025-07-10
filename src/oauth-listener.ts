@@ -17,8 +17,11 @@ export interface OAuthListenerConfig {
   useHttps?: boolean;
 }
 
-// Fixed OAuth callback port - MUST match Intuit app configuration
-const OAUTH_CALLBACK_PORT = 9741;
+// OAuth callback port range - ALL ports must be configured in Intuit app
+const OAUTH_PORT_RANGE = {
+  start: 9741,
+  end: 9758
+};
 
 export interface OAuthResult {
   code: string;
@@ -38,10 +41,19 @@ export class OAuthListener {
   constructor(private config: OAuthListenerConfig = {}) {}
 
   /**
-   * Find an available port
+   * Find an available port within the OAuth port range
    */
-  private async findFreePort(startPort: number = 8080): Promise<number> {
+  private async findFreePort(startPort: number = OAUTH_PORT_RANGE.start): Promise<number> {
     return new Promise((resolve, reject) => {
+      // Don't search beyond our configured range
+      if (startPort > OAUTH_PORT_RANGE.end) {
+        reject(new Error(
+          `All OAuth ports (${OAUTH_PORT_RANGE.start}-${OAUTH_PORT_RANGE.end}) are in use. ` +
+          `Please wait for other authentication attempts to complete or restart the server.`
+        ));
+        return;
+      }
+
       const server = net.createServer();
       
       server.listen(startPort, () => {
@@ -51,7 +63,7 @@ export class OAuthListener {
 
       server.on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
-          // Port in use, try next one
+          // Port in use, try next one in range
           this.findFreePort(startPort + 1).then(resolve).catch(reject);
         } else {
           reject(err);
@@ -87,8 +99,8 @@ export class OAuthListener {
    * Start the OAuth listener
    */
   async start(): Promise<{ port: number; state: string }> {
-    // Use fixed port for OAuth callbacks
-    this.port = OAUTH_CALLBACK_PORT;
+    // Find available port in the configured range
+    this.port = await this.findFreePort();
     
     // Generate state
     this.state = this.generateState();

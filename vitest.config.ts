@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: ['./tests/setupPolly.ts'],
+    setupFiles: ['./vitest.setup.ts', './tests/setupPolly.ts'],
     coverage: {
       reporter: ['text', 'json', 'html'],
       exclude: [

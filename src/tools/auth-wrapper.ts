@@ -3,7 +3,7 @@
  * Handles OAuth authentication flow when needed
  */
 
-import { startOAuthFlow, ErrorCode } from '../quickbooks-broker.js';
+import { ErrorCode } from '../quickbooks-broker.js';
 
 /**
  * Wrap a tool execution function with OAuth error handling
@@ -26,6 +26,8 @@ export function withAuth<TArgs, TReturn>(
       }
 
       if (errorData.code === ErrorCode.NEEDS_AUTH && errorData.needsAuth) {
+        // Lazy import to avoid configuration checks during module loading
+        const { startOAuthFlow } = await import('../quickbooks-broker.js');
         // Start OAuth flow
         const { authUrl, message } = await startOAuthFlow();
         

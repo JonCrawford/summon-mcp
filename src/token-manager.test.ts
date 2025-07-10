@@ -45,13 +45,16 @@ describe('TokenManager', () => {
     mockOAuthClient = {
       setToken: vi.fn(),
       refreshUsingToken: vi.fn(),
-      authorizeUri: vi.fn(),
+      authorizeUri: vi.fn().mockReturnValue('https://mocked.auth.url'),
       createToken: vi.fn()
     };
     
-    // Mock the constructors
-    vi.mocked(TokenStorage).mockImplementation(() => mockTokenStorage);
-    vi.mocked(OAuthClient).mockImplementation(() => mockOAuthClient);
+    // Mock the constructors - these return the mock instances
+    const MockTokenStorage = vi.mocked(TokenStorage);
+    const MockOAuthClient = vi.mocked(OAuthClient);
+    
+    MockTokenStorage.mockImplementation(() => mockTokenStorage);
+    MockOAuthClient.mockImplementation(() => mockOAuthClient);
     
     // Create instance
     tokenManager = new TokenManager();
@@ -347,10 +350,10 @@ describe('TokenManager', () => {
   });
 
   describe('generateAuthUrl', () => {
-    it('should generate auth URL with correct parameters', () => {
+    it('should generate auth URL with correct parameters', async () => {
       mockOAuthClient.authorizeUri.mockReturnValue('https://auth.url');
 
-      const url = tokenManager.generateAuthUrl('test-state', 'https://redirect.uri');
+      const url = await tokenManager.generateAuthUrl('test-state', 'https://redirect.uri');
 
       expect(mockOAuthClient.authorizeUri).toHaveBeenCalledWith({
         scope: [OAuthClient.scopes.Accounting],
@@ -359,10 +362,10 @@ describe('TokenManager', () => {
       expect(url).toBe('https://auth.url');
     });
 
-    it('should use default redirect URI for sandbox', () => {
+    it('should use default redirect URI for sandbox', async () => {
       process.env.QB_PRODUCTION = 'false';
       
-      tokenManager.generateAuthUrl('test-state');
+      await tokenManager.generateAuthUrl('test-state');
 
       expect(OAuthClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -371,10 +374,10 @@ describe('TokenManager', () => {
       );
     });
 
-    it('should use sslip.io redirect URI for production', () => {
+    it('should use sslip.io redirect URI for production', async () => {
       process.env.QB_PRODUCTION = 'true';
       
-      tokenManager.generateAuthUrl('test-state');
+      await tokenManager.generateAuthUrl('test-state');
 
       expect(OAuthClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -383,13 +386,13 @@ describe('TokenManager', () => {
       );
     });
 
-    it('should throw error when credentials are missing', () => {
+    it('should throw error when credentials are missing', async () => {
       mockTokenStorage.getOAuthCredentials.mockReturnValue({
         clientId: '',
         clientSecret: ''
       });
 
-      expect(() => tokenManager.generateAuthUrl('test-state')).toThrow(
+      await expect(tokenManager.generateAuthUrl('test-state')).rejects.toThrow(
         'OAuth credentials not configured'
       );
     });
@@ -427,19 +430,19 @@ describe('TokenManager', () => {
   });
 
   describe('OAuth client initialization', () => {
-    it('should reuse OAuth client instance', () => {
-      tokenManager.generateAuthUrl('state1');
-      tokenManager.generateAuthUrl('state2');
+    it('should reuse OAuth client instance', async () => {
+      await tokenManager.generateAuthUrl('state1');
+      await tokenManager.generateAuthUrl('state2');
 
       // Should only create one OAuth client
       expect(OAuthClient).toHaveBeenCalledTimes(1);
     });
 
-    it('should set correct environment based on QB_PRODUCTION', () => {
+    it('should set correct environment based on QB_PRODUCTION', async () => {
       process.env.QB_PRODUCTION = 'true';
       tokenManager = new TokenManager();
       
-      tokenManager.generateAuthUrl('state');
+      await tokenManager.generateAuthUrl('state');
 
       expect(OAuthClient).toHaveBeenCalledWith(
         expect.objectContaining({

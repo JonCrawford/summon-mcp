@@ -4,6 +4,7 @@ scripts/
 tasks/
 docs/
 logs/
+tasks/
 
 # Test files
 *.test.ts
@@ -46,3 +47,8 @@ test-dxt/
 
 # Other build outputs
 repomix-output.xml
+
+*.bk
+*.bck
+*.backup
+repomix*

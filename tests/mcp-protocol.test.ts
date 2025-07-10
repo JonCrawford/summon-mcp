@@ -136,7 +136,7 @@ describe.skip('MCP Protocol Initialization', () => {
 
   it('should return valid server info in initialize response', () => {
     expect(initializeResponse.result.serverInfo).toBeDefined();
-    expect(initializeResponse.result.serverInfo.name).toBe('quickbooks-mcp');
+    expect(initializeResponse.result.serverInfo.name).toBe('summon');
     expect(initializeResponse.result.serverInfo.version).toBeDefined();
   });
 

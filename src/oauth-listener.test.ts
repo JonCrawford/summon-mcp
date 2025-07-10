@@ -62,58 +62,82 @@ describe.skip('OAuthListener', () => {
 
   describe('findFreePort', () => {
     it('should find a free port successfully', async () => {
-      // Make the listener promise resolve immediately
-      const startPromise = listener.start();
+      // Mock the address to return port 9741 (first in range)
+      mockNetServer.address.mockReturnValue({ port: 9741 });
       
-      // Manually trigger the success callback
-      const netListenCall = vi.mocked(net.createServer).mock.calls[0];
-      const netServer = vi.mocked(net.createServer).mock.results[0].value;
+      // Mock the close method to call callback immediately
+      mockNetServer.close.mockImplementation((callback) => {
+        if (callback) callback();
+      });
       
-      // Simulate successful server start
-      setTimeout(() => {
-        const listenCallback = mockNetServer.listen.mock.calls[0][2];
-        if (listenCallback) listenCallback();
-      }, 0);
+      // Make the listen method call the callback immediately
+      mockNetServer.listen.mockImplementation((port, callback) => {
+        if (callback) callback();
+      });
       
-      const result = await startPromise;
+      const result = await listener.start();
       
-      expect(result.port).toBe(8080);
+      expect(result.port).toBe(9741);
       expect(net.createServer).toHaveBeenCalled();
-      expect(mockNetServer.listen).toHaveBeenCalledWith(8080, '127.0.0.1', expect.any(Function));
+      expect(mockNetServer.listen).toHaveBeenCalledWith(9741, expect.any(Function));
     });
 
     it('should try next port when current is in use', async () => {
-      // First attempt fails with EADDRINUSE
-      const errorHandler = vi.fn();
-      mockNetServer.on.mockImplementation((event, handler) => {
-        if (event === 'error') errorHandler.mockImplementation(handler);
+      // Mock two separate createServer calls for port attempts
+      const firstServer = { ...mockNetServer };
+      const secondServer = { ...mockNetServer };
+      
+      // First call returns first server (port 9741 busy)
+      vi.mocked(net.createServer).mockReturnValueOnce(firstServer as any);
+      firstServer.on.mockImplementation((event, handler) => {
+        if (event === 'error') {
+          setTimeout(() => {
+            const error: any = new Error('Port in use');
+            error.code = 'EADDRINUSE';
+            handler(error);
+          }, 0);
+        }
       });
       
-      mockNetServer.listen.mockImplementationOnce((port, host, callback) => {
-        if (typeof callback === 'function') callback();
-        const error: any = new Error('Port in use');
-        error.code = 'EADDRINUSE';
-        errorHandler(error);
-      });
+      // Second call returns second server (port 9742 available)
+      vi.mocked(net.createServer).mockReturnValueOnce(secondServer as any);
+      secondServer.address.mockReturnValue({ port: 9742 });
+      secondServer.on.mockImplementation(() => {});
       
-      // Second attempt succeeds
-      mockNetServer.address.mockReturnValueOnce({ port: 8081 });
+      const startPromise = listener.start();
       
-      const listener2 = new OAuthListener({ port: 8080 });
-      const result = await listener2.start();
+      // Simulate second server success
+      setTimeout(() => {
+        const listenCallback = secondServer.listen.mock.calls[0][1];
+        if (listenCallback) listenCallback();
+      }, 10);
       
-      expect(result.port).toBe(8081);
+      const result = await startPromise;
+      
+      expect(result.port).toBe(9742);
     });
 
-    it('should use custom port when provided', async () => {
-      const listener2 = new OAuthListener({ port: 3000 });
+    it('should reject when all ports in range are in use', async () => {
+      // Mock all createServer calls to fail with EADDRINUSE
+      for (let i = 0; i < 18; i++) {
+        const server = { ...mockNetServer };
+        vi.mocked(net.createServer).mockReturnValueOnce(server as any);
+        server.on.mockImplementation((event, handler) => {
+          if (event === 'error') {
+            setTimeout(() => {
+              const error: any = new Error('Port in use');
+              error.code = 'EADDRINUSE';
+              handler(error);
+            }, 0);
+          }
+        });
+      }
       
-      mockNetServer.address.mockReturnValue({ port: 3000 });
+      // Add one more server that will get the rejection
+      const rejectionServer = { ...mockNetServer };
+      vi.mocked(net.createServer).mockReturnValueOnce(rejectionServer as any);
       
-      const result = await listener2.start();
-      
-      expect(result.port).toBe(3000);
-      expect(mockNetServer.listen).toHaveBeenCalledWith(3000, '127.0.0.1', expect.any(Function));
+      await expect(listener.start()).rejects.toThrow('All OAuth ports (9741-9758) are in use');
     });
   });
 
@@ -139,15 +163,18 @@ describe.skip('OAuthListener', () => {
 
   describe('start', () => {
     it('should start server and return port and state', async () => {
+      // Mock the address to return port 9741 (first in range)
+      mockNetServer.address.mockReturnValue({ port: 9741 });
+      
       const result = await listener.start();
       
       expect(result).toEqual({
-        port: 8080,
+        port: 9741,
         state: 'mock-random-32-base64url'
       });
       
       expect(http.createServer).toHaveBeenCalled();
-      expect(mockServer.listen).toHaveBeenCalledWith(8080, '127.0.0.1', expect.any(Function));
+      expect(mockServer.listen).toHaveBeenCalledWith(9741, expect.any(Function));
     });
 
     it('should handle server start errors', async () => {
@@ -299,18 +326,25 @@ describe.skip('OAuthListener', () => {
 
   describe('getCallbackUrl', () => {
     it('should return HTTP URL by default', async () => {
+      // Mock the address to return port 9741 (first in range)
+      mockNetServer.address.mockReturnValue({ port: 9741 });
+      
       await listener.start();
       
       const url = listener.getCallbackUrl();
-      expect(url).toBe('http://localhost:8080/cb');
+      expect(url).toBe('http://localhost:9741/cb');
     });
 
     it('should return HTTPS URL when configured', async () => {
       const httpsListener = new OAuthListener({ useHttps: true });
+      
+      // Mock the address to return port 9741 (first in range)
+      mockNetServer.address.mockReturnValue({ port: 9741 });
+      
       await httpsListener.start();
       
       const url = httpsListener.getCallbackUrl();
-      expect(url).toBe('https://127-0-0-1.sslip.io:8080/cb');
+      expect(url).toBe('https://127-0-0-1.sslip.io:9741/cb');
     });
   });
 

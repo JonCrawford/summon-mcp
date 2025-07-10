@@ -11,31 +11,39 @@ import QuickBooks from 'node-quickbooks';
 import { TokenManager } from './token-manager.js';
 import { TokenStorage } from './token-storage.js';
 import { OAuthListener } from './oauth-listener.js';
-import { spawn } from 'child_process';
-import { platform } from 'os';
-import { getConfig, isConfigError, getRedirectUri } from './config.js';
+import { openUrlInBrowser } from './utils/browser-opener.js';
+import { getConfig, getRedirectUri } from './config.js';
 
 // Cache of QuickBooks clients by company name
 const qbClients = new Map<string, QuickBooks>();
 
 export class QuickBooksBroker {
   private tokenManager: TokenManager;
-  private tokenStorage: TokenStorage;
+  private tokenStorage: TokenStorage | null = null;
+  private lastUsedCompany: { name: string; realmId: string } | null = null;
 
   constructor(tokenManager: TokenManager) {
     this.tokenManager = tokenManager;
-    this.tokenStorage = new TokenStorage();
+    // TokenStorage will be initialized lazily to avoid sync sql.js init
+  }
+
+  private async getTokenStorage(): Promise<TokenStorage> {
+    if (!this.tokenStorage) {
+      this.tokenStorage = new TokenStorage();
+    }
+    return this.tokenStorage;
   }
 
   /**
    * List all connected companies
    */
   async listCompanies(): Promise<{ name: string; realmId: string }[]> {
-    const companyNames = await this.tokenStorage.listCompanies();
+    const tokenStorage = await this.getTokenStorage();
+    const companyNames = await tokenStorage.listCompanies();
     const companies: { name: string; realmId: string }[] = [];
     
     for (const name of companyNames) {
-      const tokenData = await this.tokenStorage.loadRefreshToken(name);
+      const tokenData = await tokenStorage.loadRefreshToken(name);
       if (tokenData?.realmId) {
         companies.push({ name, realmId: tokenData.realmId });
       }
@@ -46,26 +54,50 @@ export class QuickBooksBroker {
 
   /**
    * Get QuickBooks client for a specific company
+   * @param realmId - The realm ID of the company
    */
-  async getQBOClient(companyName?: string): Promise<QuickBooks> {
-    // Get first company if none specified
-    if (!companyName) {
+  async getQBOClient(realmId?: string): Promise<QuickBooks> {
+    let companyInfo: { name: string; realmId: string } | undefined;
+    
+    if (!realmId) {
+      // Get first company if none specified
       const companies = await this.listCompanies();
       if (companies.length === 0) {
-        throw new Error('No QuickBooks companies connected. Please authenticate first.');
+        throw new Error('No QuickBooks companies connected. Please use the "authenticate" tool first to connect to QuickBooks.');
       }
-      companyName = companies[0].name;
+      if (companies.length > 1) {
+        throw new Error(`Multiple QuickBooks companies found. Please specify the realmId parameter. Available companies: ${companies.map(c => `${c.name} (${c.realmId})`).join(', ')}`);
+      }
+      companyInfo = companies[0];
+      realmId = companyInfo.realmId;
     }
     
-    // Check cache
-    if (qbClients.has(companyName)) {
-      return qbClients.get(companyName)!;
+    // Check cache by realmId
+    if (qbClients.has(realmId)) {
+      // Update last used company if we have info
+      if (companyInfo) {
+        this.lastUsedCompany = companyInfo;
+      }
+      return qbClients.get(realmId)!;
     }
     
-    // Load tokens for this company
-    const tokenData = await this.tokenStorage.loadRefreshToken(companyName);
+    // Load tokens for this company by realmId
+    const tokenStorage = await this.getTokenStorage();
+    const tokenData = await tokenStorage.loadRefreshToken(realmId);
     if (!tokenData) {
-      throw new Error(`Company "${companyName}" not found. Available companies: ${(await this.listCompanies()).map(c => c.name).join(', ')}`);
+      const companies = await this.listCompanies();
+      throw new Error(`Company with realm ID "${realmId}" not found. Available companies: ${companies.map(c => `${c.name} (${c.realmId})`).join(', ')}`);
+    }
+    
+    // If we don't have company info yet, find it
+    if (!companyInfo) {
+      const companies = await this.listCompanies();
+      companyInfo = companies.find(c => c.realmId === realmId);
+    }
+    
+    // Update last used company
+    if (companyInfo) {
+      this.lastUsedCompany = companyInfo;
     }
     
     // Ensure we have a valid access token
@@ -73,9 +105,6 @@ export class QuickBooksBroker {
     
     // Get configuration
     const config = getConfig();
-    if (isConfigError(config)) {
-      throw new Error(config.message);
-    }
     
     // Create client
     const client = new QuickBooks(
@@ -91,10 +120,23 @@ export class QuickBooksBroker {
       '' // Refresh token not needed here
     );
     
-    // Cache the client
-    qbClients.set(companyName, client);
+    // Cache the client by realmId
+    qbClients.set(realmId, client);
     
     return client;
+  }
+
+  /**
+   * Get the last used company info
+   */
+  getLastUsedCompanyInfo(): { name: string; realmId: string; companyName?: string } | null {
+    if (!this.lastUsedCompany) {
+      return null;
+    }
+    return {
+      ...this.lastUsedCompany,
+      companyName: this.lastUsedCompany.name // Provide both for compatibility
+    };
   }
 
   /**
@@ -120,10 +162,7 @@ export class QuickBooksBroker {
       }
     }
     
-    // In DXT environment, we can't run OAuth flow
-    if (process.env.DXT_ENVIRONMENT) {
-      return 'OAuth authentication flow cannot be started in DXT environment. Please configure QB_COMPANIES in your Claude Desktop settings with pre-authenticated tokens.';
-    }
+    // OAuth flow works in all environments including DXT
     
     const listener = new OAuthListener();
     
@@ -136,13 +175,10 @@ export class QuickBooksBroker {
       
       // Get configuration
       const config = getConfig();
-      if (isConfigError(config)) {
-        throw new Error(config.message);
-      }
       
       // Generate auth URL
       const redirectUri = getRedirectUri(config);
-      const authUrl = this.tokenManager.generateAuthUrl(state, redirectUri);
+      const authUrl = await this.tokenManager.generateAuthUrl(state, redirectUri);
       console.error(`OAuth: Generated auth URL: ${authUrl}`);
       
       // Open browser
@@ -190,24 +226,6 @@ export class QuickBooksBroker {
    * Open browser for OAuth
    */
   private openBrowser(url: string) {
-    const os = platform();
-    let command: string;
-    
-    switch (os) {
-      case 'darwin':
-        command = 'open';
-        break;
-      case 'win32':
-        command = 'start';
-        break;
-      default:
-        command = 'xdg-open';
-    }
-    
-    try {
-      spawn(command, [url], { detached: true, stdio: 'ignore' }).unref();
-    } catch (error) {
-      console.error('Failed to open browser:', error);
-    }
+    openUrlInBrowser(url);
   }
 }

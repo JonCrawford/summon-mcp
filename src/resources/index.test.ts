@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FastMCP } from 'fastmcp';
 import { registerQuickBooksResources } from './index.js';
-import * as quickbooksBroker from '../quickbooks-broker.js';
+import * as quickbooksBroker from '../quickbooks-broker-adapter.js';
 
-// Mock the quickbooks-broker module
-vi.mock('../quickbooks-broker.js', () => ({
+// Mock the quickbooks-broker-adapter module
+vi.mock('../quickbooks-broker-adapter.js', () => ({
   getQBOClient: vi.fn(),
-  listCompanies: vi.fn()
+  listCompanies: vi.fn(),
+  clearClientCache: vi.fn()
 }));
 
 describe('QuickBooks Resources', () => {
@@ -51,9 +52,8 @@ describe('QuickBooks Resources', () => {
 
     it('should register special resources', () => {
       expect(registeredResources.has('qb://companies')).toBe(true);
-      expect(registeredResources.has('qb://company/info')).toBe(true);
-      expect(registeredResources.has('qb://auth/status')).toBe(true);
-      expect(registeredResources.has('qb://metadata')).toBe(true);
+      // Company info is registered as a template, not a static resource
+      expect(registeredResourceTemplates.has('qb://company/info')).toBe(true);
     });
   });
 
