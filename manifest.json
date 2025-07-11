@@ -1,7 +1,7 @@
 {
   "dxt_version": "0.2",
   "name": "summon",
-  "version": "2.0.27",
+  "version": "2.0.28",
   "description": "summon - QuickBooks Online integration for MCP with multi-company support",
   "author": {
     "name": "Jonathan Crawford"
@@ -68,7 +68,7 @@
     "storage_directory": {
       "type": "directory",
       "title": "Data Storage Directory",
-      "description": "Directory for storing QuickBooks authentication and cache data",
+      "description": "Directory for storing QuickBooks authentication and cache data. Set this to /Users/<your-name>/Documents/",
       "required": true
     }
   },

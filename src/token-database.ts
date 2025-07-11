@@ -182,7 +182,7 @@ export class TokenDatabase {
       tokenData.companyName,
       tokenData.accessToken,
       tokenData.refreshToken,
-      tokenData.expiresAt,
+      Math.floor(tokenData.expiresAt / 1000), // Convert from milliseconds to seconds
       this.environment,
       tokenData.realmId, // for the COALESCE subquery
       now, // for created_at default
@@ -327,7 +327,7 @@ export class TokenDatabase {
       companyName: record.company_name,
       accessToken: record.access_token,
       refreshToken: record.refresh_token,
-      expiresAt: record.expires_at
+      expiresAt: record.expires_at * 1000 // Convert from seconds to milliseconds
     };
   }
   
