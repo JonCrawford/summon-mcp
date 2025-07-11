@@ -37,6 +37,17 @@ interface ServerConfig {
 function detectServerMode(): ServerMode {
     // DXT environment detection
     if (process.env.DXT_ENVIRONMENT === 'true') {
+        // Debug logging for Windows DXT environment
+        console.error('=== DXT Environment Debug ===');
+        console.error('Platform:', process.platform);
+        console.error('Node version:', process.version);
+        console.error('Environment variables:');
+        Object.keys(process.env).sort().forEach(key => {
+            if (key.startsWith('QB_') || key.startsWith('DXT_') || key === 'NODE_ENV') {
+                console.error(`  ${key}: ${key.includes('SECRET') ? '[REDACTED]' : process.env[key]}`);
+            }
+        });
+        console.error('=== End Debug ===');
         return ServerMode.DXT;
     }
 
@@ -57,7 +68,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: false, // No file writes in DXT
                 enableResourcesAndPrompts: true,
-                version: '2.0.17',
+                version: '2.0.23',
             };
 
         case ServerMode.PRODUCTION:
@@ -65,7 +76,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: true, // Enable logging in production
                 enableResourcesAndPrompts: true,
-                version: '2.0.17',
+                version: '2.0.23',
             };
 
         case ServerMode.DEVELOPMENT:

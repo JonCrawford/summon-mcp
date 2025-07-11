@@ -99,9 +99,23 @@ export async function startOAuthFlow(): Promise<{
         console.error(
             `OAuth: Using ${config.environment} mode with redirect URI: ${redirectUri}`
         );
+        console.error(`OAuth: CRITICAL - Listener port: ${port}, Redirect URI: ${redirectUri}`);
 
         const authUrl = await tm.generateAuthUrl(state, redirectUri);
         console.error(`OAuth: Generated auth URL: ${authUrl}`);
+        
+        // Parse and log the URL components for debugging
+        try {
+            const urlObj = new URL(authUrl);
+            console.error('OAuth: URL Components:');
+            console.error(`  - Base URL: ${urlObj.origin}${urlObj.pathname}`);
+            console.error(`  - client_id: ${urlObj.searchParams.get('client_id')}`);
+            console.error(`  - redirect_uri: ${urlObj.searchParams.get('redirect_uri')}`);
+            console.error(`  - scope: ${urlObj.searchParams.get('scope')}`);
+            console.error(`  - state: ${urlObj.searchParams.get('state')}`);
+        } catch (e) {
+            console.error('OAuth: Failed to parse auth URL:', e);
+        }
 
         // Open browser in background
         openBrowser(authUrl);

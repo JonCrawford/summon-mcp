@@ -68,6 +68,19 @@ export function getConfig(): QuickBooksConfig {
     // In DXT mode, credentials are always passed as QB_CLIENT_ID/QB_CLIENT_SECRET
     const isDXT = process.env.DXT_ENVIRONMENT === 'true';
     
+    // Debug logging for Windows
+    if (isDXT) {
+        console.error('Config: DXT mode detected');
+        console.error('Config: Environment variables:', {
+            QB_CLIENT_ID: process.env.QB_CLIENT_ID ? 'SET' : 'NOT SET',
+            QB_CLIENT_SECRET: process.env.QB_CLIENT_SECRET ? 'SET' : 'NOT SET',
+            QB_PRODUCTION: process.env.QB_PRODUCTION,
+            DXT_ENVIRONMENT: process.env.DXT_ENVIRONMENT,
+            // Log all QB_ prefixed env vars
+            allQBVars: Object.keys(process.env).filter(key => key.startsWith('QB_')).sort()
+        });
+    }
+    
     if (isDXT) {
         // DXT always uses standard credential names
         clientId = process.env.QB_CLIENT_ID;
