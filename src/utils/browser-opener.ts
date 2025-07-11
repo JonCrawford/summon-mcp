@@ -20,22 +20,32 @@ export function openUrlInBrowser(url: string): void {
   }
   
   const os = platform();
-  let command: string;
-  
-  switch (os) {
-    case 'darwin':
-      command = 'open';
-      break;
-    case 'win32':
-      command = 'start';
-      break;
-    default:
-      command = 'xdg-open';
-  }
   
   try {
-    spawn(command, [url], { detached: true, stdio: 'ignore' }).unref();
+    switch (os) {
+      case 'darwin':
+        spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
+        break;
+      case 'win32':
+        // Windows requires using cmd.exe with start command
+        // The empty string "" is for the window title
+        spawn('cmd.exe', ['/c', 'start', '""', url], { 
+          detached: true, 
+          stdio: 'ignore',
+          shell: false 
+        }).unref();
+        break;
+      default:
+        // Linux/Unix
+        spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
+    }
   } catch (error) {
     console.error('Failed to open browser:', error);
+    // Fallback: try using shell: true as last resort
+    try {
+      spawn(url, [], { shell: true, detached: true, stdio: 'ignore' }).unref();
+    } catch (fallbackError) {
+      console.error('Fallback browser opening also failed:', fallbackError);
+    }
   }
 }

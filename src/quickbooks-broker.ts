@@ -123,7 +123,8 @@ export async function startOAuthFlow(): Promise<{
             // Exchange code and get the actual token data
             tokenData = await tm.exchangeCodeForTokens(
                 result.code,
-                result.realmId!
+                result.realmId!,
+                redirectUri
             );
             console.error('OAuth: Token exchange successful!');
 

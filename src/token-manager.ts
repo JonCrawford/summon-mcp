@@ -13,6 +13,9 @@ import OAuthClient from 'intuit-oauth';
 import { getRedirectUri } from './config.js';
 import { ConfigurationError, TokenError, ErrorFactory } from './errors/index.js';
 
+// Fallback scope constant in case OAuthClient.scopes is not available
+const QUICKBOOKS_ACCOUNTING_SCOPE = 'com.intuit.quickbooks.accounting';
+
 export interface TokenManagerConfig {
   clientId: string;
   clientSecret: string;
@@ -52,13 +55,27 @@ export class TokenManager {
    */
   private initOAuthClient(config: TokenManagerConfig): OAuthClient {
     if (!this.oauthClient) {
-      this.oauthClient = new OAuthClient({
+      const oauthConfig = {
         clientId: config.clientId,
         clientSecret: config.clientSecret,
-        environment: config.isProduction ? 'production' : 'sandbox',
+        environment: (config.isProduction ? 'production' : 'sandbox') as 'production' | 'sandbox',
         redirectUri: getRedirectUri(config),
         logging: false
+      };
+      
+      console.error('TokenManager.initOAuthClient: Creating client with config:', {
+        clientId: oauthConfig.clientId ? 'present' : 'missing',
+        clientSecret: oauthConfig.clientSecret ? 'present' : 'missing',
+        environment: oauthConfig.environment,
+        redirectUri: oauthConfig.redirectUri
       });
+      
+      this.oauthClient = new OAuthClient(oauthConfig);
+      
+      // Log the client properties after creation
+      console.error('TokenManager.initOAuthClient: Client created, checking properties...');
+      console.error('TokenManager.initOAuthClient: client.clientId:', (this.oauthClient as any).clientId ? 'present' : 'missing');
+      console.error('TokenManager.initOAuthClient: client.redirectUri:', (this.oauthClient as any).redirectUri);
     }
     return this.oauthClient;
   }
@@ -273,16 +290,76 @@ export class TokenManager {
     const config = await this.getConfig();
     const client = this.initOAuthClient({ ...config, redirectUri });
 
-    return client.authorizeUri({
-      scope: [OAuthClient.scopes.Accounting],
+    // Debug logging for OAuth scope
+    console.error('TokenManager.generateAuthUrl: OAuthClient type:', typeof OAuthClient);
+    console.error('TokenManager.generateAuthUrl: OAuthClient.scopes:', OAuthClient.scopes);
+    console.error('TokenManager.generateAuthUrl: OAuthClient.scopes.Accounting:', OAuthClient.scopes?.Accounting);
+    
+    // Robust scope handling for Windows compatibility
+    let scope: string;
+    
+    // Check if OAuthClient.scopes exists and has Accounting property
+    if (OAuthClient.scopes && OAuthClient.scopes.Accounting) {
+      scope = OAuthClient.scopes.Accounting;
+    } else {
+      // Fallback to hardcoded value if static property is not available
+      console.error('TokenManager.generateAuthUrl: WARNING - OAuthClient.scopes.Accounting not available, using hardcoded value');
+      scope = QUICKBOOKS_ACCOUNTING_SCOPE;
+    }
+    
+    console.error('TokenManager.generateAuthUrl: Using scope:', scope);
+    
+    // Prepare auth parameters
+    const authParams = {
+      scope: [scope],
       state: state
-    });
+    };
+    
+    console.error('TokenManager.generateAuthUrl: Auth params:', authParams);
+    
+    try {
+      const authUrl = client.authorizeUri(authParams);
+      
+      console.error('TokenManager.generateAuthUrl: Generated URL:', authUrl);
+      
+      // Verify the URL contains the scope parameter
+      if (!authUrl.includes('scope=')) {
+        console.error('TokenManager.generateAuthUrl: WARNING - Generated URL does not contain scope parameter');
+        throw new Error('Generated URL missing scope parameter');
+      }
+      
+      return authUrl;
+    } catch (error: any) {
+      console.error('TokenManager.generateAuthUrl: Error generating auth URL:', error);
+      console.error('TokenManager.generateAuthUrl: Error details:', {
+        message: error.message,
+        stack: error.stack,
+        clientId: config.clientId ? 'present' : 'missing',
+        redirectUri: (client as any).redirectUri
+      });
+      
+      // Try one more time with explicit parameters
+      try {
+        const fallbackUrl = `https://appcenter.intuit.com/connect/oauth2?` +
+          `response_type=code&` +
+          `client_id=${encodeURIComponent(config.clientId)}&` +
+          `scope=${encodeURIComponent(scope || QUICKBOOKS_ACCOUNTING_SCOPE)}&` +
+          `redirect_uri=${encodeURIComponent((client as any).redirectUri || getRedirectUri(config))}&` +
+          `state=${encodeURIComponent(state)}`;
+        
+        console.error('TokenManager.generateAuthUrl: Using manually constructed URL:', fallbackUrl);
+        return fallbackUrl;
+      } catch (fallbackError) {
+        console.error('TokenManager.generateAuthUrl: Fallback URL construction failed:', fallbackError);
+        throw error; // Re-throw original error
+      }
+    }
   }
 
   /**
    * Exchange authorization code for tokens
    */
-  async exchangeCodeForTokens(code: string, realmId: string): Promise<TokenData> {
+  async exchangeCodeForTokens(code: string, realmId: string, redirectUri?: string): Promise<TokenData> {
     debugLog('TokenManager: Starting token exchange...', { 
       codePreview: code.substring(0, 10) + '...', 
       realmId 
@@ -294,15 +371,15 @@ export class TokenManager {
       isProduction: config.isProduction
     });
     
-    // Use centralized redirect URI configuration
-    const redirectUri = getRedirectUri(config);
+    // Use provided redirect URI or fall back to default
+    const finalRedirectUri = redirectUri || getRedirectUri(config);
     
-    const client = this.initOAuthClient({ ...config, redirectUri });
-    console.error('TokenManager: OAuth client initialized with redirect URI:', redirectUri);
+    const client = this.initOAuthClient({ ...config, redirectUri: finalRedirectUri });
+    console.error('TokenManager: OAuth client initialized with redirect URI:', finalRedirectUri);
 
     try {
       // Exchange code for tokens - createToken expects full callback URL
-      const callbackUrl = `${redirectUri}?code=${code}&realmId=${realmId}`;
+      const callbackUrl = `${finalRedirectUri}?code=${code}&realmId=${realmId}`;
       console.error('TokenManager: Calling createToken with URL:', callbackUrl);
       const authResponse: any = await client.createToken(callbackUrl);
       
