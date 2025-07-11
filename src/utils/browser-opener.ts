@@ -27,12 +27,11 @@ export function openUrlInBrowser(url: string): void {
         spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
         break;
       case 'win32':
-        // FIXED: Windows requires proper URL quoting to handle ampersands
-        // The ampersands (&) in URLs are treated as command separators by cmd.exe
-        // unless the URL is properly quoted. This was causing OAuth URLs to be
-        // truncated after the first parameter.
-        // The empty string "" is for the window title, and the URL is now quoted
-        spawn('cmd.exe', ['/c', 'start', '""', `"${url}"`], { 
+        // Windows URL handling with proper escaping
+        // We need to escape the & characters without breaking URL recognition
+        // Using the ^ escape character for cmd.exe
+        const escapedUrl = url.replace(/&/g, '^&');
+        spawn('cmd.exe', ['/c', 'start', '""', escapedUrl], { 
           detached: true, 
           stdio: 'ignore',
           shell: false 
@@ -48,13 +47,12 @@ export function openUrlInBrowser(url: string): void {
     // Enhanced fallback for Windows
     if (os === 'win32') {
       try {
-        // Try alternative Windows approach using shell: true
-        spawn('start', [`""`, `"${url}"`], { 
-          shell: true, 
+        // Try alternative Windows approach using rundll32
+        spawn('rundll32', ['url.dll,FileProtocolHandler', url], { 
           detached: true, 
           stdio: 'ignore' 
         }).unref();
-        console.error('Windows: Used fallback browser opening method');
+        console.error('Windows: Used rundll32 fallback method');
       } catch (fallbackError) {
         console.error('Windows: All browser opening methods failed:', fallbackError);
       }

@@ -1,7 +1,7 @@
 {
   "dxt_version": "0.2",
   "name": "summon",
-  "version": "2.0.25",
+  "version": "2.0.26",
   "description": "summon - QuickBooks Online integration for MCP with multi-company support",
   "author": {
     "name": "Jonathan Crawford"

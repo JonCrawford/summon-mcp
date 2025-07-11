@@ -68,7 +68,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: false, // No file writes in DXT
                 enableResourcesAndPrompts: true,
-                version: '2.0.25',
+                version: '2.0.26',
             };
 
         case ServerMode.PRODUCTION:
@@ -76,7 +76,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: true, // Enable logging in production
                 enableResourcesAndPrompts: true,
-                version: '2.0.25',
+                version: '2.0.26',
             };
 
         case ServerMode.DEVELOPMENT:
