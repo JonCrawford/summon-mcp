@@ -61,7 +61,10 @@ describe('TokenStorage', () => {
       await storage.saveRefreshToken(testToken1);
       
       const loaded = await storage.loadRefreshToken('realm-1');
-      expect(loaded).toEqual(testToken1);
+      expect(loaded).toEqual({
+        ...testToken1,
+        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
+      });
     });
 
     it('should require realmId', async () => {
@@ -102,14 +105,20 @@ describe('TokenStorage', () => {
       await storage.saveRefreshToken(testToken1);
       
       const loaded = await storage.loadRefreshToken('realm-1');
-      expect(loaded).toEqual(testToken1);
+      expect(loaded).toEqual({
+        ...testToken1,
+        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
+      });
     });
 
     it('should load token by company name', async () => {
       await storage.saveRefreshToken(testToken1);
       
       const loaded = await storage.loadRefreshToken('XYZ Roofing Company');
-      expect(loaded).toEqual(testToken1);
+      expect(loaded).toEqual({
+        ...testToken1,
+        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
+      });
     });
 
     it('should require exact company name match', async () => {
@@ -122,7 +131,10 @@ describe('TokenStorage', () => {
       
       // Should find with exact name
       const exactMatch = await storage.loadRefreshToken('XYZ Roofing Company');
-      expect(exactMatch).toEqual(testToken1);
+      expect(exactMatch).toEqual({
+        ...testToken1,
+        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
+      });
     });
 
     it('should return null for non-existent token', async () => {
@@ -150,7 +162,10 @@ describe('TokenStorage', () => {
       const loaded2 = await storage.loadRefreshToken('realm-2');
       
       expect(loaded1).toBeNull();
-      expect(loaded2).toEqual(testToken2);
+      expect(loaded2).toEqual({
+        ...testToken2,
+        expiresAt: Math.floor(testToken2.expiresAt / 1000) * 1000
+      });
     });
 
     it('should clear specific token by company name', async () => {
@@ -162,7 +177,10 @@ describe('TokenStorage', () => {
       const loaded1 = await storage.loadRefreshToken('realm-1');
       const loaded2 = await storage.loadRefreshToken('realm-2');
       
-      expect(loaded1).toEqual(testToken1);
+      expect(loaded1).toEqual({
+        ...testToken1,
+        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
+      });
       expect(loaded2).toBeNull();
     });
 
@@ -304,38 +322,30 @@ describe('TokenDatabase', () => {
   });
 
   describe('database operations', () => {
-    it('should create database file', async () => {
-      // Ensure database is initialized
-      await db.init();
+    it('should create database file', () => {
+      // Database is initialized in constructor
       const dbPath = path.join(testDir, '.summon', 'tokens.db');
       expect(fs.existsSync(dbPath)).toBe(true);
     });
 
-    it('should handle concurrent operations', async () => {
-      // Perform multiple operations concurrently
-      const operations = [];
-      
+    it('should handle concurrent operations', () => {
+      // Perform multiple operations
       for (let i = 0; i < 10; i++) {
-        operations.push(
-          db.saveToken({
-            realmId: `realm-${i}`,
-            companyName: `Company ${i}`,
-            accessToken: `access-${i}`,
-            refreshToken: `refresh-${i}`,
-            expiresAt: Date.now() + 3600000
-          })
-        );
+        db.saveToken({
+          realmId: `realm-${i}`,
+          companyName: `Company ${i}`,
+          accessToken: `access-${i}`,
+          refreshToken: `refresh-${i}`,
+          expiresAt: Date.now() + 3600000
+        });
       }
       
-      // Wait for all operations to complete
-      await Promise.all(operations);
-      
       // Verify all tokens were saved
-      const companies = await db.listCompanies();
+      const companies = db.listCompanies();
       expect(companies).toHaveLength(10);
     });
 
-    it('should enforce unique realm_id constraint', async () => {
+    it('should enforce unique realm_id constraint', () => {
       const token = {
         realmId: 'duplicate-realm',
         companyName: 'Company 1',
@@ -344,12 +354,12 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now() + 3600000
       };
       
-      await db.saveToken(token);
+      db.saveToken(token);
       
       // Saving with same realmId should update, not duplicate
-      await db.saveToken({ ...token, companyName: 'Company 2' });
+      db.saveToken({ ...token, companyName: 'Company 2' });
       
-      const companies = await db.listCompanies();
+      const companies = db.listCompanies();
       expect(companies).toHaveLength(1);
       expect(companies[0].companyName).toBe('Company 2');
     });

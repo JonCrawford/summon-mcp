@@ -24,12 +24,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@types/sql.js": "^1.4.9",
+    "better-sqlite3": "^12.2.0",
     "dotenv": "^17.0.1",
     "fastmcp": "^3.8.2",
     "intuit-oauth": "^4.2.0",
     "node-quickbooks": "^2.0.46",
-    "sql.js": "^1.13.0",
     "zod": "^3.25.74"
   },
   "devDependencies": {
@@ -38,6 +37,7 @@
     "@pollyjs/adapter-node-http": "^6.0.6",
     "@pollyjs/core": "^6.0.6",
     "@pollyjs/persister-fs": "^6.0.6",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.10",
     "@typescript-eslint/eslint-plugin": "^8.35.1",
     "@typescript-eslint/parser": "^8.35.1",

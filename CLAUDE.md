@@ -13,7 +13,7 @@ This is summon - a QuickBooks MCP (Model Context Protocol) Server that provides 
 -   It's important to adhere to the MCP spec where only valid JSON is emitted in MCP responses. Clients expect only valid JSON and will error without it.
 -   Fixed "Method not found" errors for `resources/list` and `prompts/list` endpoints by adding minimal resource and prompt to the server. FastMCP only sets up these handlers if resources/prompts are registered, so we added a server info resource and help prompt to ensure the endpoints are available.
 -   Server operates in sandbox mode by default. Set `QUICKBOOKS_PRODUCTION=true` to use production mode.
--   Tokens are stored in SQLite database using sql.js. Always stored in `.summon/tokens.db` within the storage directory. Default: `~/.summon/tokens.db`. Custom DXT directory example: `/Users/jon/Documents/.summon/tokens.db`.
+-   Tokens are stored in SQLite database using better-sqlite3. Always stored in `.summon/tokens.db` within the storage directory. Default: `~/.summon/tokens.db`. Custom DXT directory example: `/Users/jon/Documents/.summon/tokens.db`.
 -   **Multi-Company Support**: Multiple QuickBooks companies can be connected simultaneously. Companies are identified by realm ID.
 -   **DXT Packaging**: Uses unified `server.ts` that auto-detects environment. Single `manifest.json` for all deployments.
 -   **MCP Protocol Compliance**: Server MUST NOT call `process.exit(1)` before completing the MCP handshake. The server must always be able to start and respond to the initialize request, even when unconfigured. Report configuration issues through the protocol (health_check tool, error responses) instead of exiting during startup.

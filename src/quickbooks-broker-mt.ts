@@ -24,7 +24,7 @@ export class QuickBooksBroker {
 
   constructor(tokenManager: TokenManager) {
     this.tokenManager = tokenManager;
-    // TokenStorage will be initialized lazily to avoid sync sql.js init
+    // TokenStorage will be initialized lazily
   }
 
   private async getTokenStorage(): Promise<TokenStorage> {

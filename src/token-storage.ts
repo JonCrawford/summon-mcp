@@ -23,11 +23,10 @@ export class TokenStorage {
   /**
    * Get or create database instance
    */
-  private async getDatabase(): Promise<TokenDatabase> {
+  private getDatabase(): TokenDatabase {
     if (!this.db) {
       const config = getConfig();
       this.db = new TokenDatabase(config.storageDir);
-      await this.db.init();
     }
     return this.db;
   }
@@ -40,7 +39,7 @@ export class TokenStorage {
       throw new Error('realmId is required for token storage');
     }
     
-    const db = await this.getDatabase();
+    const db = this.getDatabase();
     
     const dbTokenData: DBTokenData = {
       realmId: tokenData.realmId,
@@ -50,7 +49,7 @@ export class TokenStorage {
       expiresAt: tokenData.expiresAt || 0
     };
     
-    await db.saveToken(dbTokenData);
+    db.saveToken(dbTokenData);
     
     console.error(`TokenStorage: Saved company "${dbTokenData.companyName}" (${dbTokenData.realmId})`);
   }
@@ -59,15 +58,15 @@ export class TokenStorage {
    * Load refresh token by company name or realm ID
    */
   async loadRefreshToken(companyNameOrRealmId?: string): Promise<TokenData | null> {
-    const db = await this.getDatabase();
+    const db = this.getDatabase();
     
     if (companyNameOrRealmId) {
       // Try to load by realm ID first (more specific)
-      let dbToken = await db.loadToken(companyNameOrRealmId);
+      let dbToken = db.loadToken(companyNameOrRealmId);
       
       // If not found, try by company name
       if (!dbToken) {
-        dbToken = await db.loadTokenByCompanyName(companyNameOrRealmId);
+        dbToken = db.loadTokenByCompanyName(companyNameOrRealmId);
       }
       
       if (dbToken) {
@@ -75,9 +74,9 @@ export class TokenStorage {
       }
     } else {
       // No specific company requested, return first available
-      const companies = await db.listCompanies();
+      const companies = db.listCompanies();
       if (companies.length > 0) {
-        const dbToken = await db.loadToken(companies[0].realmId);
+        const dbToken = db.loadToken(companies[0].realmId);
         if (dbToken) {
           return this.dbTokenToTokenData(dbToken);
         }
@@ -91,35 +90,16 @@ export class TokenStorage {
    * Clear stored tokens for a specific company or all companies
    */
   async clearTokens(companyNameOrRealmId?: string): Promise<void> {
-    const db = await this.getDatabase();
-    
-    if (companyNameOrRealmId) {
-      // Try to find by realm ID first
-      let dbToken = await db.loadToken(companyNameOrRealmId);
-      
-      // If not found, try by company name
-      if (!dbToken) {
-        dbToken = await db.loadTokenByCompanyName(companyNameOrRealmId);
-      }
-      
-      if (dbToken) {
-        await db.deleteToken(dbToken.realmId);
-      }
-    } else {
-      // Clear all companies
-      const companies = await db.listCompanies();
-      for (const company of companies) {
-        await db.deleteToken(company.realmId);
-      }
-    }
+    const db = this.getDatabase();
+    db.clearTokens(companyNameOrRealmId);
   }
   
   /**
    * List all connected companies
    */
   async listCompanies(): Promise<string[]> {
-    const db = await this.getDatabase();
-    const companies = await db.listCompanies();
+    const db = this.getDatabase();
+    const companies = db.listCompanies();
     return companies.map(c => c.companyName);
   }
   
@@ -127,7 +107,7 @@ export class TokenStorage {
    * Get detailed company information (for LLM context)
    */
   async getCompanyInfo(): Promise<CompanyInfo[]> {
-    const db = await this.getDatabase();
+    const db = this.getDatabase();
     return db.listCompanies();
   }
   
@@ -135,7 +115,7 @@ export class TokenStorage {
    * Check if we have any tokens stored
    */
   async hasTokens(): Promise<boolean> {
-    const db = await this.getDatabase();
+    const db = this.getDatabase();
     return db.hasTokens();
   }
   
@@ -144,7 +124,7 @@ export class TokenStorage {
    */
   private dbTokenToTokenData(dbToken: DBTokenData): TokenData {
     return {
-      refreshToken: dbToken.refreshToken,
+      refreshToken: dbToken.refreshToken || '',
       accessToken: dbToken.accessToken,
       expiresAt: dbToken.expiresAt,
       realmId: dbToken.realmId,

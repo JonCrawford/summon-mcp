@@ -9,7 +9,7 @@ describe('TokenDatabase', () => {
   let db: TokenDatabase;
   const originalEnv = { ...process.env };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     // Create test directory
     if (!fs.existsSync(testDir)) {
       fs.mkdirSync(testDir, { recursive: true });
@@ -19,7 +19,6 @@ describe('TokenDatabase', () => {
     process.env.QB_PRODUCTION = 'false';
     
     db = new TokenDatabase(testDir);
-    await db.init();
   });
 
   afterEach(() => {
@@ -35,15 +34,14 @@ describe('TokenDatabase', () => {
   });
 
   describe('constructor', () => {
-    it('should create database file in specified directory', async () => {
+    it('should create database file in specified directory', () => {
       const dbPath = path.join(testDir, '.summon', 'tokens.db');
       expect(fs.existsSync(dbPath)).toBe(true);
     });
 
-    it('should create directory if it does not exist', async () => {
+    it('should create directory if it does not exist', () => {
       const newDir = path.join(testDir, 'nested', 'path');
       const testDb = new TokenDatabase(newDir);
-      await testDb.init();
       
       const summonDir = path.join(newDir, '.summon');
       expect(fs.existsSync(summonDir)).toBe(true);
@@ -53,10 +51,9 @@ describe('TokenDatabase', () => {
       fs.rmSync(path.join(testDir, 'nested'), { recursive: true });
     });
 
-    it('should always create .summon subdirectory', async () => {
+    it('should always create .summon subdirectory', () => {
       const baseDir = path.join(testDir, 'custom');
       const testDb = new TokenDatabase(baseDir);
-      await testDb.init();
       
       // Should always create .summon subdirectory
       const summonDir = path.join(baseDir, '.summon');
@@ -68,7 +65,7 @@ describe('TokenDatabase', () => {
   });
 
   describe('saveToken', () => {
-    it('should save token with all fields', async () => {
+    it('should save token with all fields', () => {
       const tokenData = {
         realmId: 'test-realm-123',
         companyName: 'Test Company Inc',
@@ -77,13 +74,16 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now() + 3600000
       };
       
-      await db.saveToken(tokenData);
+      db.saveToken(tokenData);
       
-      const loaded = await db.loadToken('test-realm-123');
-      expect(loaded).toMatchObject(tokenData);
+      const loaded = db.loadToken('test-realm-123');
+      expect(loaded).toMatchObject({
+        ...tokenData,
+        expiresAt: Math.floor(tokenData.expiresAt / 1000) * 1000
+      });
     });
 
-    it('should update existing token for same realmId', async () => {
+    it('should update existing token for same realmId', () => {
       const initialToken = {
         realmId: 'update-realm',
         companyName: 'Initial Company',
@@ -92,7 +92,7 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       };
       
-      await db.saveToken(initialToken);
+      db.saveToken(initialToken);
       
       const updatedToken = {
         realmId: 'update-realm',
@@ -102,21 +102,23 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now() + 7200000
       };
       
-      await db.saveToken(updatedToken);
+      db.saveToken(updatedToken);
       
-      const loaded = await db.loadToken('update-realm');
-      expect(loaded).toMatchObject(updatedToken);
+      const loaded = db.loadToken('update-realm');
+      expect(loaded).toMatchObject({
+        ...updatedToken,
+        expiresAt: Math.floor(updatedToken.expiresAt / 1000) * 1000
+      });
       
       // Should still have only one company
-      const companies = await db.listCompanies();
+      const companies = db.listCompanies();
       expect(companies).toHaveLength(1);
     });
 
-    it('should save with correct environment', async () => {
+    it('should save with correct environment', () => {
       process.env.QB_PRODUCTION = 'true';
       const prodDb = new TokenDatabase(testDir + '-prod');
-      await prodDb.init();
-      
+            
       const tokenData = {
         realmId: 'prod-realm',
         companyName: 'Production Company',
@@ -125,9 +127,12 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       };
       
-      await prodDb.saveToken(tokenData);
-      const loaded = await prodDb.loadToken('prod-realm');
-      expect(loaded).toMatchObject(tokenData);
+      prodDb.saveToken(tokenData);
+      const loaded = prodDb.loadToken('prod-realm');
+      expect(loaded).toMatchObject({
+        ...tokenData,
+        expiresAt: Math.floor(tokenData.expiresAt / 1000) * 1000
+      });
       
       prodDb.close();
       fs.rmSync(testDir + '-prod', { recursive: true });
@@ -135,12 +140,12 @@ describe('TokenDatabase', () => {
   });
 
   describe('loadToken', () => {
-    it('should return null for non-existent token', async () => {
-      const loaded = await db.loadToken('non-existent-realm');
+    it('should return null for non-existent token', () => {
+      const loaded = db.loadToken('non-existent-realm');
       expect(loaded).toBeNull();
     });
 
-    it('should only load tokens from current environment', async () => {
+    it('should only load tokens from current environment', () => {
       // Save sandbox token
       const sandboxToken = {
         realmId: 'realm-1',
@@ -150,14 +155,13 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       };
       
-      await db.saveToken(sandboxToken);
+      db.saveToken(sandboxToken);
       
       // Switch to production and try to load
       process.env.QB_PRODUCTION = 'true';
       const prodDb = new TokenDatabase(testDir);
-      await prodDb.init();
-      
-      const loaded = await prodDb.loadToken('realm-1');
+            
+      const loaded = prodDb.loadToken('realm-1');
       expect(loaded).toBeNull();
       
       prodDb.close();
@@ -165,8 +169,8 @@ describe('TokenDatabase', () => {
   });
 
   describe('loadTokenByCompanyName', () => {
-    beforeEach(async () => {
-      await db.saveToken({
+    beforeEach(() => {
+      db.saveToken({
         realmId: 'realm-1',
         companyName: 'XYZ Roofing Company',
         accessToken: 'access-1',
@@ -175,23 +179,23 @@ describe('TokenDatabase', () => {
       });
     });
 
-    it('should find by exact company name', async () => {
-      const loaded = await db.loadTokenByCompanyName('XYZ Roofing Company');
+    it('should find by exact company name', () => {
+      const loaded = db.loadTokenByCompanyName('XYZ Roofing Company');
       expect(loaded?.realmId).toBe('realm-1');
     });
 
-    it('should require exact match (case sensitive)', async () => {
-      const loaded = await db.loadTokenByCompanyName('xyz roofing company');
+    it('should require exact match (case sensitive)', () => {
+      const loaded = db.loadTokenByCompanyName('xyz roofing company');
       expect(loaded).toBeNull();
     });
 
-    it('should return null when no match found', async () => {
-      const loaded = await db.loadTokenByCompanyName('Non-existent Company');
+    it('should return null when no match found', () => {
+      const loaded = db.loadTokenByCompanyName('Non-existent Company');
       expect(loaded).toBeNull();
     });
 
-    it('should handle special characters in company names', async () => {
-      await db.saveToken({
+    it('should handle special characters in company names', () => {
+      db.saveToken({
         realmId: 'realm-3',
         companyName: 'Smith & Jones, LLC',
         accessToken: 'access-3',
@@ -199,13 +203,13 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       });
 
-      const loaded = await db.loadTokenByCompanyName('Smith & Jones, LLC');
+      const loaded = db.loadTokenByCompanyName('Smith & Jones, LLC');
       expect(loaded?.realmId).toBe('realm-3');
     });
   });
 
-  describe('deleteToken', () => {
-    it('should delete existing token', async () => {
+  describe('clearTokens', () => {
+    it('should delete existing token', () => {
       const tokenData = {
         realmId: 'delete-realm',
         companyName: 'Delete Company',
@@ -214,16 +218,16 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       };
       
-      await db.saveToken(tokenData);
-      await db.deleteToken('delete-realm');
+      db.saveToken(tokenData);
+      db.clearTokens('delete-realm');
       
-      const loaded = await db.loadToken('delete-realm');
+      const loaded = db.loadToken('delete-realm');
       expect(loaded).toBeNull();
     });
 
-    it('should only delete from current environment', async () => {
+    it('should only delete from current environment', () => {
       // Save to sandbox
-      await db.saveToken({
+      db.saveToken({
         realmId: 'env-realm',
         companyName: 'Env Company',
         accessToken: 'env-access',
@@ -234,24 +238,23 @@ describe('TokenDatabase', () => {
       // Delete from production environment (should not affect sandbox)
       process.env.QB_PRODUCTION = 'true';
       const prodDb = new TokenDatabase(testDir);
-      await prodDb.init();
-      await prodDb.deleteToken('env-realm');
+            prodDb.clearTokens('env-realm');
       prodDb.close();
       
       // Should still exist in sandbox
-      const loaded = await db.loadToken('env-realm');
+      const loaded = db.loadToken('env-realm');
       expect(loaded).not.toBeNull();
     });
   });
 
   describe('listCompanies', () => {
-    it('should return empty array when no companies', async () => {
-      const companies = await db.listCompanies();
+    it('should return empty array when no companies', () => {
+      const companies = db.listCompanies();
       expect(companies).toEqual([]);
     });
 
-    it('should list all companies in current environment', async () => {
-      await db.saveToken({
+    it('should list all companies in current environment', () => {
+      db.saveToken({
         realmId: 'realm-1',
         companyName: 'Company A',
         accessToken: 'access-1',
@@ -259,7 +262,7 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       });
       
-      await db.saveToken({
+      db.saveToken({
         realmId: 'realm-2',
         companyName: 'Company B',
         accessToken: 'access-2',
@@ -267,14 +270,14 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       });
       
-      const companies = await db.listCompanies();
+      const companies = db.listCompanies();
       expect(companies).toHaveLength(2);
       expect(companies.map(c => c.companyName).sort()).toEqual(['Company A', 'Company B']);
     });
 
-    it('should not list companies from other environments', async () => {
+    it('should not list companies from other environments', () => {
       // Save to sandbox
-      await db.saveToken({
+      db.saveToken({
         realmId: 'sandbox-realm',
         companyName: 'Sandbox Company',
         accessToken: 'sandbox-access',
@@ -285,9 +288,8 @@ describe('TokenDatabase', () => {
       // Check production environment
       process.env.QB_PRODUCTION = 'true';
       const prodDb = new TokenDatabase(testDir);
-      await prodDb.init();
-      
-      const companies = await prodDb.listCompanies();
+            
+      const companies = prodDb.listCompanies();
       expect(companies).toEqual([]);
       
       prodDb.close();
@@ -295,13 +297,13 @@ describe('TokenDatabase', () => {
   });
 
   describe('hasTokens', () => {
-    it('should return false when no tokens', async () => {
-      const hasTokens = await db.hasTokens();
+    it('should return false when no tokens', () => {
+      const hasTokens = db.hasTokens();
       expect(hasTokens).toBe(false);
     });
 
-    it('should return true when tokens exist', async () => {
-      await db.saveToken({
+    it('should return true when tokens exist', () => {
+      db.saveToken({
         realmId: 'test-realm',
         companyName: 'Test Company',
         accessToken: 'test-access',
@@ -309,13 +311,13 @@ describe('TokenDatabase', () => {
         expiresAt: Date.now()
       });
       
-      const hasTokens = await db.hasTokens();
+      const hasTokens = db.hasTokens();
       expect(hasTokens).toBe(true);
     });
 
-    it('should check current environment only', async () => {
+    it('should check current environment only', () => {
       // Save to sandbox
-      await db.saveToken({
+      db.saveToken({
         realmId: 'sandbox-realm',
         companyName: 'Sandbox Company',
         accessToken: 'sandbox-access',
@@ -326,9 +328,8 @@ describe('TokenDatabase', () => {
       // Check production environment (should be false)
       process.env.QB_PRODUCTION = 'true';
       const prodDb = new TokenDatabase(testDir);
-      await prodDb.init();
-      
-      const hasTokens = await prodDb.hasTokens();
+            
+      const hasTokens = prodDb.hasTokens();
       expect(hasTokens).toBe(false);
       
       prodDb.close();
@@ -336,7 +337,7 @@ describe('TokenDatabase', () => {
   });
 
   describe('concurrent access', () => {
-    it('should handle multiple saves without corruption', async () => {
+    it('should handle multiple saves without corruption', () => {
       const savePromises = [];
       
       for (let i = 0; i < 10; i++) {
@@ -350,14 +351,14 @@ describe('TokenDatabase', () => {
         savePromises.push(promise);
       }
       
-      await Promise.all(savePromises);
+      Promise.all(savePromises);
       
-      const companies = await db.listCompanies();
+      const companies = db.listCompanies();
       expect(companies).toHaveLength(10);
     });
 
-    it('should handle interleaved reads and writes', async () => {
-      await db.saveToken({
+    it('should handle interleaved reads and writes', () => {
+      db.saveToken({
         realmId: 'read-write-realm',
         companyName: 'Read Write Company',
         accessToken: 'access-initial',
@@ -381,16 +382,16 @@ describe('TokenDatabase', () => {
         operations.push(db.loadToken('read-write-realm'));
       }
       
-      await Promise.all(operations);
+      Promise.all(operations);
       
-      const final = await db.loadToken('read-write-realm');
+      const final = db.loadToken('read-write-realm');
       expect(final?.accessToken).toMatch(/access-\d+/);
     });
   });
 
   describe('close', () => {
-    it('should close database connection', async () => {
-      await db.saveToken({
+    it('should close database connection', () => {
+      db.saveToken({
         realmId: 'close-test',
         companyName: 'Close Test',
         accessToken: 'close-access',

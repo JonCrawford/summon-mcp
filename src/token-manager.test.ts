@@ -351,15 +351,21 @@ describe('TokenManager', () => {
 
   describe('generateAuthUrl', () => {
     it('should generate auth URL with correct parameters', async () => {
-      mockOAuthClient.authorizeUri.mockReturnValue('https://auth.url');
-
-      const url = await tokenManager.generateAuthUrl('test-state', 'https://redirect.uri');
+      // The actual implementation now falls back to manual URL construction
+      // when the OAuth client doesn't properly include the scope parameter
+      const url = await tokenManager.generateAuthUrl('test-state', 'http://localhost:9741/cb');
 
       expect(mockOAuthClient.authorizeUri).toHaveBeenCalledWith({
         scope: [OAuthClient.scopes.Accounting],
         state: 'test-state'
       });
-      expect(url).toBe('https://auth.url');
+      
+      // Verify the URL contains the required parameters
+      expect(url).toContain('https://appcenter.intuit.com/connect/oauth2');
+      expect(url).toContain('client_id=test-client-id');
+      expect(url).toContain('scope=com.intuit.quickbooks.accounting');
+      expect(url).toContain('state=test-state');
+      expect(url).toContain('redirect_uri=http%3A%2F%2Flocalhost%3A9741%2Fcb');
     });
 
     it('should use default redirect URI for sandbox', async () => {

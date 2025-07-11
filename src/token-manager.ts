@@ -37,7 +37,7 @@ export class TokenManager {
   private cacheExpiry: number = 0;
 
   constructor() {
-    // TokenStorage will be initialized lazily to avoid sync sql.js init
+    // TokenStorage will be initialized lazily
   }
 
   /**
