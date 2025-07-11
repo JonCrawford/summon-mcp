@@ -402,8 +402,52 @@ export class TokenManager {
         refreshTokenPreview: tokenData.refresh_token ? tokenData.refresh_token.substring(0, 20) + '...' : 'missing'
       });
       
-      // Try to get company name (we'll use default for now)
-      let companyName = 'QuickBooks Company';
+      // Fetch actual company name from QuickBooks
+      let companyName = 'QuickBooks Company'; // Default fallback
+      
+      try {
+        console.error('TokenManager: Fetching company information...');
+        
+        // Import QuickBooks at the top of the function to avoid circular dependency
+        const QuickBooks = (await import('node-quickbooks')).default;
+        
+        // Create a temporary QuickBooks client to fetch company info
+        const tempClient = new QuickBooks(
+          config.clientId,
+          config.clientSecret,
+          tokenData.access_token,
+          false, // No token secret for OAuth 2.0
+          realmId,
+          !config.isProduction, // Use sandbox = true when NOT in production
+          false, // Disable debug
+          null, // Minor version
+          '2.0', // OAuth version
+          tokenData.refresh_token // Refresh token
+        );
+        
+        // Fetch company info
+        const companyInfo = await new Promise<any>((resolve, reject) => {
+          (tempClient as any).getCompanyInfo(realmId, (err: any, data: any) => {
+            if (err) {
+              console.error('TokenManager: Failed to fetch company info:', err);
+              reject(err);
+            } else {
+              resolve(data);
+            }
+          });
+        });
+        
+        // Extract company name from response
+        if (companyInfo && companyInfo.CompanyName) {
+          companyName = companyInfo.CompanyName;
+          console.error(`TokenManager: Successfully fetched company name: "${companyName}"`);
+        } else {
+          console.error('TokenManager: Company info response missing CompanyName:', companyInfo);
+        }
+      } catch (error) {
+        console.error('TokenManager: Error fetching company info, using default:', error);
+        // Continue with default company name
+      }
       
       // Save tokens
       console.error('TokenManager: Saving tokens...');
