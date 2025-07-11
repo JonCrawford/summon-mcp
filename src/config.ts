@@ -4,6 +4,7 @@
  */
 
 import os from 'os';
+import path from 'path';
 import { ConfigurationError } from './errors/index.js';
 
 export interface QuickBooksConfig {
@@ -105,8 +106,9 @@ export function getConfig(): QuickBooksConfig {
     
     const redirectUri = process.env.QB_REDIRECT_URI || process.env.INTUIT_REDIRECT_URI;
 
-    // Read storage directory (defaults to home directory)
-    const storageDir = process.env.QB_STORAGE_DIR || os.homedir();
+    // Read storage directory (defaults to Documents folder)
+    const documentsDir = path.join(os.homedir(), 'Documents');
+    const storageDir = process.env.QB_STORAGE_DIR || documentsDir;
 
     // Validate required credentials
     if (!clientId || !clientSecret) {
