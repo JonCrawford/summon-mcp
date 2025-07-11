@@ -165,6 +165,8 @@ export class TokenDatabase {
   async saveToken(tokenData: TokenData): Promise<void> {
     await this.init();
     
+    console.error(`[TokenDatabase] saveToken: Saving token for realm ${tokenData.realmId}, company "${tokenData.companyName}", environment: ${this.environment}`);
+    
     const now = Math.floor(Date.now() / 1000);
     
     this.db.run(`
@@ -243,6 +245,8 @@ export class TokenDatabase {
   async listCompanies(): Promise<CompanyInfo[]> {
     await this.init();
     
+    console.error(`[TokenDatabase] listCompanies: Querying for environment: ${this.environment}`);
+    
     const stmt = this.db.prepare(`
       SELECT realm_id, company_name 
       FROM tokens 
@@ -259,6 +263,19 @@ export class TokenDatabase {
         realmId: row.realm_id,
         companyName: row.company_name
       });
+    }
+    
+    console.error(`[TokenDatabase] listCompanies: Found ${companies.length} companies`);
+    
+    // Debug: Show all tokens in database regardless of environment
+    if (companies.length === 0) {
+      const debugStmt = this.db.prepare(`SELECT realm_id, company_name, environment FROM tokens`);
+      const allTokens: any[] = [];
+      while (debugStmt.step()) {
+        allTokens.push(debugStmt.getAsObject());
+      }
+      debugStmt.free();
+      console.error('[TokenDatabase] Debug - All tokens in database:', allTokens);
     }
     
     stmt.free();

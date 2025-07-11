@@ -1,47 +1,32 @@
-import fs from 'fs';
-import path from 'path';
-import archiver from 'archiver';
+#!/usr/bin/env node
 
-// Read manifest
-const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+import { readFileSync } from 'fs';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// DXT package name
-const dxtPackageName = `${manifest.name}.dxt`;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = join(__dirname, '..');
 
-// Create a file to stream archive data to.
-const output = fs.createWriteStream(dxtPackageName);
-const archive = archiver('zip', {
-  zlib: { level: 9 } // Sets the compression level.
-});
+// Read version from manifest.json
+const manifestPath = join(projectRoot, 'manifest.json');
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+const version = manifest.version;
 
-// Listen for all archive data to be written
-output.on('close', function() {
-  console.log(`\n✅ DXT package created successfully!`);
-  console.log(`📦 Package: ${dxtPackageName}`);
-  console.log(`📏 Size: ${(archive.pointer() / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`🔖 Version: ${manifest.version}`);
-});
+// Generate filename
+const outputFile = `quickbooks-mcp-${version}.dxt`;
 
-archive.on('warning', function(err) {
-  if (err.code === 'ENOENT') {
-    console.warn(err);
-  } else {
-    throw err;
-  }
-});
+console.log(`Packaging DXT extension version ${version}...`);
 
-archive.on('error', function(err) {
-  throw err;
-});
-
-// Pipe archive data to the file
-archive.pipe(output);
-
-// Add files and directories
-archive.file('manifest.json', { name: 'manifest.json' });
-archive.directory('dist/', 'dist');
-archive.directory('node_modules/', 'node_modules');
-
-
-// Finalize the archive
-archive.finalize();
+// Run dxt pack command
+try {
+    execSync(`dxt pack . ${outputFile}`, {
+        stdio: 'inherit',
+        cwd: projectRoot
+    });
+    console.log(`\n✅ Successfully created ${outputFile}`);
+} catch (error) {
+    console.error('❌ Failed to package DXT extension:', error.message);
+    process.exit(1);
+}

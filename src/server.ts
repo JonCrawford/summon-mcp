@@ -68,7 +68,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: false, // No file writes in DXT
                 enableResourcesAndPrompts: true,
-                version: '2.0.26',
+                version: '2.0.27',
             };
 
         case ServerMode.PRODUCTION:
@@ -76,7 +76,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: true, // Enable logging in production
                 enableResourcesAndPrompts: true,
-                version: '2.0.26',
+                version: '2.0.27',
             };
 
         case ServerMode.DEVELOPMENT:
@@ -159,6 +159,12 @@ async function initializeServer(): Promise<void> {
             const clientId = process.env.QB_CLIENT_ID;
             const clientSecret = process.env.QB_CLIENT_SECRET;
             hasCredentials = !!(clientId && clientSecret);
+            
+            // In DXT mode, credentials might be available later
+            // So we'll check again when needed
+            if (!hasCredentials && config.mode === ServerMode.DXT) {
+                logger.info('Credentials not available at startup in DXT mode, will check again later');
+            }
             
             // Debug Windows environment variables
             logger.info('=== Windows Debug: Checking Credentials ===');
@@ -243,12 +249,27 @@ async function initializeServer(): Promise<void> {
                 }
             }
 
+            // Check credentials in real-time for DXT mode
+            let currentHasCredentials = hasCredentials;
+            if (config.mode === ServerMode.DXT) {
+                // In DXT, always check credentials in real-time
+                const currentClientId = process.env.QB_CLIENT_ID;
+                const currentClientSecret = process.env.QB_CLIENT_SECRET;
+                currentHasCredentials = !!(currentClientId && currentClientSecret);
+                
+                // Update the cached value if it changed
+                if (currentHasCredentials !== hasCredentials) {
+                    hasCredentials = currentHasCredentials;
+                    logger.info(`Credentials status changed: ${hasCredentials}`);
+                }
+            }
+            
             // Build response with all information
             const response: any = {
                 status,
                 mode,
                 authenticated: hasToken,
-                credentials_configured: hasCredentials,
+                credentials_configured: currentHasCredentials,
             };
 
             if (hasToken && companies.length > 0) {

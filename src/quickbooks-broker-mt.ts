@@ -12,7 +12,7 @@ import { TokenManager } from './token-manager.js';
 import { TokenStorage } from './token-storage.js';
 import { OAuthListener } from './oauth-listener.js';
 import { openUrlInBrowser } from './utils/browser-opener.js';
-import { getConfig, getRedirectUri } from './config.js';
+import { getConfig, getRedirectUri, getConfigForOperation } from './config.js';
 
 // Cache of QuickBooks clients by company name
 const qbClients = new Map<string, QuickBooks>();
@@ -103,8 +103,8 @@ export class QuickBooksBroker {
     // Ensure we have a valid access token
     const accessToken = await this.tokenManager.getAccessToken();
     
-    // Get configuration
-    const config = getConfig();
+    // Get configuration (use the operation version for DXT compatibility)
+    const config = getConfigForOperation();
     
     // Create client
     const client = new QuickBooks(
@@ -198,7 +198,16 @@ export class QuickBooksBroker {
       this.clearClientCache();
       
       // Get updated company list
-      const companies = await this.listCompanies();
+      let companies: { name: string; realmId: string }[] = [];
+      try {
+        companies = await this.listCompanies();
+      } catch (listError: any) {
+        console.error('OAuth: Failed to list companies after auth:', listError);
+        // Don't fail the whole auth flow if we can't list companies
+        // The tokens are saved, so we can try again later
+        return `Authentication successful! Tokens saved. Note: Failed to retrieve company list (${listError.message}). Try using the health_check or qb_list_companies tools.`;
+      }
+      
       return `Authentication successful! Connected to ${companies.length} QuickBooks company(s): ${companies.map(c => c.name).join(', ')}`;
     } catch (error: any) {
       console.error('OAuth: Flow failed:', error);

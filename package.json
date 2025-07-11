@@ -1,6 +1,6 @@
 {
   "name": "summon",
-  "version": "2.0.26",
+  "version": "2.0.27",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -10,8 +10,7 @@
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "build:dxt": "npm run build && npm run package:dxt",
-    "package:dxt": "npm run build && npx dxt pack . quickbooks-mcp.dxt",
+    "package:dxt": "npm run build && node scripts/package-dxt.js",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:integration": "vitest run tests/server.integration.test.ts",

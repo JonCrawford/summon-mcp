@@ -172,6 +172,35 @@ export function getConfigSafe(): QuickBooksConfig | ConfigError {
 }
 
 /**
+ * Get configuration for operations that require credentials
+ * In DXT mode, this might retry to handle timing issues
+ */
+export function getConfigForOperation(): QuickBooksConfig {
+    // First attempt
+    try {
+        return getConfig();
+    } catch (error) {
+        // In DXT mode, credentials might become available after initial startup
+        if (process.env.DXT_ENVIRONMENT === 'true') {
+            // Log the issue
+            console.error('Config: First attempt failed in DXT mode, checking again...');
+            
+            // Force a fresh read of environment variables
+            const clientId = process.env.QB_CLIENT_ID;
+            const clientSecret = process.env.QB_CLIENT_SECRET;
+            
+            console.error('Config: Fresh read - QB_CLIENT_ID:', clientId ? 'SET' : 'NOT SET');
+            console.error('Config: Fresh read - QB_CLIENT_SECRET:', clientSecret ? 'SET' : 'NOT SET');
+            
+            // Try one more time
+            return getConfig();
+        }
+        // Re-throw in non-DXT environments
+        throw error;
+    }
+}
+
+/**
  * Get OAuth URLs based on the environment
  */
 export function getOAuthUrls(
