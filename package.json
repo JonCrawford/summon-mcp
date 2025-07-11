@@ -1,6 +1,6 @@
 {
   "name": "summon",
-  "version": "2.0.27",
+  "version": "2.0.31",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -16,15 +16,13 @@
     "test:integration": "vitest run tests/server.integration.test.ts",
     "test:watch": "vitest",
     "lint": "eslint 'src/**/*.{ts,tsx}' --fix",
-    "typecheck": "tsc --noEmit",
-    "migrate": "tsx src/migrate-tokens.ts"
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "better-sqlite3": "^12.2.0",
     "dotenv": "^17.0.1",
     "fastmcp": "^3.8.2",
     "intuit-oauth": "^4.2.0",
@@ -37,7 +35,6 @@
     "@pollyjs/adapter-node-http": "^6.0.6",
     "@pollyjs/core": "^6.0.6",
     "@pollyjs/persister-fs": "^6.0.6",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.10",
     "@typescript-eslint/eslint-plugin": "^8.35.1",
     "@typescript-eslint/parser": "^8.35.1",

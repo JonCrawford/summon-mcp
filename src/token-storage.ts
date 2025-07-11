@@ -1,28 +1,149 @@
 /**
- * Token Storage V2 - SQLite-based implementation
+ * JSON-based Token Storage
  * 
- * Simplified storage strategy using SQLite database for all environments
+ * Simple, cross-platform token storage using JSON files
  */
 
-import { TokenDatabase, TokenData as DBTokenData, CompanyInfo } from './token-database.js';
+import * as fs from 'fs';
+import * as path from 'path';
 import { getConfig } from './config.js';
 
-// Token storage interface (same as original for compatibility)
 export interface TokenData {
-  refreshToken: string;
+  realmId: string;
+  companyName: string;
   accessToken?: string;
+  refreshToken: string;
   expiresAt?: number;
-  realmId?: string;
-  companyName?: string;
 }
 
-// Storage strategy using SQLite
+export interface CompanyInfo {
+  realmId: string;
+  companyName: string;
+}
+
+interface TokenRecord {
+  [realmId: string]: TokenData;
+}
+
+export class TokenDatabase {
+  private filePath: string;
+  private environment: string;
+  
+  constructor(storageDir: string) {
+    // Always create .summon subdirectory
+    const summonDir = path.join(storageDir, '.summon');
+    
+    // Ensure storage directory exists
+    if (!fs.existsSync(summonDir)) {
+      fs.mkdirSync(summonDir, { recursive: true });
+    }
+    
+    // Determine environment
+    const isProduction = process.env.QB_PRODUCTION === 'true' || 
+                        process.env.QUICKBOOKS_PRODUCTION === 'true';
+    this.environment = isProduction ? 'production' : 'sandbox';
+    
+    // Use different files for different environments
+    const fileName = `tokens-${this.environment}.json`;
+    this.filePath = path.join(summonDir, fileName);
+    
+    console.error(`[TokenDatabase] Using JSON storage at: ${this.filePath}`);
+  }
+  
+  private loadTokens(): TokenRecord {
+    try {
+      if (fs.existsSync(this.filePath)) {
+        const data = fs.readFileSync(this.filePath, 'utf-8');
+        return JSON.parse(data) || {};
+      }
+    } catch (error) {
+      console.error('[TokenDatabase] Error loading tokens:', error);
+    }
+    return {};
+  }
+  
+  private saveTokens(tokens: TokenRecord): void {
+    try {
+      fs.writeFileSync(this.filePath, JSON.stringify(tokens, null, 2));
+    } catch (error) {
+      console.error('[TokenDatabase] Error saving tokens:', error);
+      throw error;
+    }
+  }
+  
+  saveToken(tokenData: TokenData): void {
+    const tokens = this.loadTokens();
+    tokens[tokenData.realmId] = tokenData;
+    this.saveTokens(tokens);
+    console.error(`[TokenDatabase] Saved token for realm ${tokenData.realmId}, company "${tokenData.companyName}"`);
+  }
+  
+  loadToken(realmId: string): TokenData | null {
+    const tokens = this.loadTokens();
+    return tokens[realmId] || null;
+  }
+  
+  loadTokenByCompanyName(companyName: string): TokenData | null {
+    const tokens = this.loadTokens();
+    for (const token of Object.values(tokens)) {
+      if (token.companyName === companyName) {
+        return token;
+      }
+    }
+    return null;
+  }
+  
+  clearTokens(realmIdOrCompanyName?: string): void {
+    if (!realmIdOrCompanyName) {
+      // Clear all tokens
+      this.saveTokens({});
+      console.error('[TokenDatabase] Cleared all tokens');
+      return;
+    }
+    
+    const tokens = this.loadTokens();
+    
+    // Try to delete by realm ID first
+    if (tokens[realmIdOrCompanyName]) {
+      delete tokens[realmIdOrCompanyName];
+      this.saveTokens(tokens);
+      console.error(`[TokenDatabase] Cleared token for realm ${realmIdOrCompanyName}`);
+      return;
+    }
+    
+    // Try to delete by company name
+    for (const [realmId, token] of Object.entries(tokens)) {
+      if (token.companyName === realmIdOrCompanyName) {
+        delete tokens[realmId];
+        this.saveTokens(tokens);
+        console.error(`[TokenDatabase] Cleared token for company "${realmIdOrCompanyName}"`);
+        return;
+      }
+    }
+  }
+  
+  listCompanies(): CompanyInfo[] {
+    const tokens = this.loadTokens();
+    return Object.values(tokens).map(token => ({
+      realmId: token.realmId,
+      companyName: token.companyName
+    }));
+  }
+  
+  hasTokens(): boolean {
+    const tokens = this.loadTokens();
+    return Object.keys(tokens).length > 0;
+  }
+  
+  close(): void {
+    // No-op for JSON storage
+  }
+}
+
+// Re-export TokenStorage to use JSON implementation
 export class TokenStorage {
   private db: TokenDatabase | null = null;
   
-  /**
-   * Get or create database instance
-   */
   private getDatabase(): TokenDatabase {
     if (!this.db) {
       const config = getConfig();
@@ -31,110 +152,62 @@ export class TokenStorage {
     return this.db;
   }
   
-  /**
-   * Save refresh token and related data
-   */
   async saveRefreshToken(tokenData: TokenData): Promise<void> {
     if (!tokenData.realmId) {
       throw new Error('realmId is required for token storage');
     }
     
     const db = this.getDatabase();
+    db.saveToken(tokenData);
     
-    const dbTokenData: DBTokenData = {
-      realmId: tokenData.realmId,
-      companyName: tokenData.companyName || 'QuickBooks Company',
-      accessToken: tokenData.accessToken || '',
-      refreshToken: tokenData.refreshToken,
-      expiresAt: tokenData.expiresAt || 0
-    };
-    
-    db.saveToken(dbTokenData);
-    
-    console.error(`TokenStorage: Saved company "${dbTokenData.companyName}" (${dbTokenData.realmId})`);
+    console.error(`TokenStorage: Saved company "${tokenData.companyName}" (${tokenData.realmId})`);
   }
   
-  /**
-   * Load refresh token by company name or realm ID
-   */
   async loadRefreshToken(companyNameOrRealmId?: string): Promise<TokenData | null> {
     const db = this.getDatabase();
     
     if (companyNameOrRealmId) {
       // Try to load by realm ID first (more specific)
-      let dbToken = db.loadToken(companyNameOrRealmId);
+      let token = db.loadToken(companyNameOrRealmId);
       
       // If not found, try by company name
-      if (!dbToken) {
-        dbToken = db.loadTokenByCompanyName(companyNameOrRealmId);
+      if (!token) {
+        token = db.loadTokenByCompanyName(companyNameOrRealmId);
       }
       
-      if (dbToken) {
-        return this.dbTokenToTokenData(dbToken);
-      }
+      return token;
     } else {
       // No specific company requested, return first available
       const companies = db.listCompanies();
       if (companies.length > 0) {
-        const dbToken = db.loadToken(companies[0].realmId);
-        if (dbToken) {
-          return this.dbTokenToTokenData(dbToken);
-        }
+        return db.loadToken(companies[0].realmId);
       }
     }
     
     return null;
   }
   
-  /**
-   * Clear stored tokens for a specific company or all companies
-   */
   async clearTokens(companyNameOrRealmId?: string): Promise<void> {
     const db = this.getDatabase();
     db.clearTokens(companyNameOrRealmId);
   }
   
-  /**
-   * List all connected companies
-   */
   async listCompanies(): Promise<string[]> {
     const db = this.getDatabase();
     const companies = db.listCompanies();
     return companies.map(c => c.companyName);
   }
   
-  /**
-   * Get detailed company information (for LLM context)
-   */
   async getCompanyInfo(): Promise<CompanyInfo[]> {
     const db = this.getDatabase();
     return db.listCompanies();
   }
   
-  /**
-   * Check if we have any tokens stored
-   */
   async hasTokens(): Promise<boolean> {
     const db = this.getDatabase();
     return db.hasTokens();
   }
   
-  /**
-   * Convert database token format to legacy format
-   */
-  private dbTokenToTokenData(dbToken: DBTokenData): TokenData {
-    return {
-      refreshToken: dbToken.refreshToken || '',
-      accessToken: dbToken.accessToken,
-      expiresAt: dbToken.expiresAt,
-      realmId: dbToken.realmId,
-      companyName: dbToken.companyName
-    };
-  }
-  
-  /**
-   * Close database connection
-   */
   close(): void {
     if (this.db) {
       this.db.close();
@@ -142,18 +215,13 @@ export class TokenStorage {
     }
   }
   
-  /**
-   * Check if we have valid credentials to attempt OAuth
-   */
   hasOAuthCredentials(): boolean {
     const isDXT = process.env.DXT_ENVIRONMENT === 'true';
     
     if (isDXT) {
-      // In DXT, only check standard credential names
       return !!(process.env.QB_CLIENT_ID && process.env.QB_CLIENT_SECRET);
     }
     
-    // In non-DXT environments, check all possible credential combinations
     const hasQB = !!(process.env.QB_CLIENT_ID && process.env.QB_CLIENT_SECRET);
     const hasIntuit = !!(process.env.INTUIT_CLIENT_ID && process.env.INTUIT_CLIENT_SECRET);
     const hasQBProd = !!(process.env.QB_CLIENT_ID_PRODUCTION && process.env.QB_CLIENT_SECRET_PRODUCTION);
@@ -161,9 +229,6 @@ export class TokenStorage {
     return hasQB || hasIntuit || hasQBProd || hasIntuitProd;
   }
   
-  /**
-   * Get OAuth credentials from environment
-   */
   getOAuthCredentials() {
     const isProduction = process.env.QB_PRODUCTION === 'true' || process.env.QUICKBOOKS_PRODUCTION === 'true';
     const isDXT = process.env.DXT_ENVIRONMENT === 'true';
@@ -172,11 +237,9 @@ export class TokenStorage {
     let clientSecret: string = '';
     
     if (isDXT) {
-      // DXT always uses standard credential names
       clientId = process.env.QB_CLIENT_ID || '';
       clientSecret = process.env.QB_CLIENT_SECRET || '';
     } else if (isProduction) {
-      // In production (non-DXT), check production-specific credentials first
       clientId = process.env.QB_CLIENT_ID_PRODUCTION || 
                  process.env.INTUIT_CLIENT_ID_PRODUCTION ||
                  process.env.QB_CLIENT_ID || 
@@ -186,7 +249,6 @@ export class TokenStorage {
                      process.env.QB_CLIENT_SECRET || 
                      process.env.INTUIT_CLIENT_SECRET || '';
     } else {
-      // In sandbox, use standard credentials
       clientId = process.env.QB_CLIENT_ID || 
                  process.env.INTUIT_CLIENT_ID || '';
       clientSecret = process.env.QB_CLIENT_SECRET || 

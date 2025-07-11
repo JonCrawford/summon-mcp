@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TokenStorage } from './token-storage.js';
-import { TokenDatabase } from './token-database.js';
+import { TokenStorage, TokenDatabase } from './token-storage.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -61,10 +60,7 @@ describe('TokenStorage', () => {
       await storage.saveRefreshToken(testToken1);
       
       const loaded = await storage.loadRefreshToken('realm-1');
-      expect(loaded).toEqual({
-        ...testToken1,
-        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
-      });
+      expect(loaded).toEqual(testToken1);
     });
 
     it('should require realmId', async () => {
@@ -74,13 +70,13 @@ describe('TokenStorage', () => {
         .rejects.toThrow('realmId is required');
     });
 
-    it('should use default company name when not provided', async () => {
-      const tokenWithoutName = { ...testToken1, companyName: undefined };
+    it('should save company name as provided', async () => {
+      const tokenWithCustomName = { ...testToken1, companyName: 'My Custom Company' };
       
-      await storage.saveRefreshToken(tokenWithoutName);
+      await storage.saveRefreshToken(tokenWithCustomName);
       
       const loaded = await storage.loadRefreshToken('realm-1');
-      expect(loaded?.companyName).toBe('QuickBooks Company');
+      expect(loaded?.companyName).toBe('My Custom Company');
     });
 
     it('should update existing token for same realmId', async () => {
@@ -105,20 +101,14 @@ describe('TokenStorage', () => {
       await storage.saveRefreshToken(testToken1);
       
       const loaded = await storage.loadRefreshToken('realm-1');
-      expect(loaded).toEqual({
-        ...testToken1,
-        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
-      });
+      expect(loaded).toEqual(testToken1);
     });
 
     it('should load token by company name', async () => {
       await storage.saveRefreshToken(testToken1);
       
       const loaded = await storage.loadRefreshToken('XYZ Roofing Company');
-      expect(loaded).toEqual({
-        ...testToken1,
-        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
-      });
+      expect(loaded).toEqual(testToken1);
     });
 
     it('should require exact company name match', async () => {
@@ -133,7 +123,7 @@ describe('TokenStorage', () => {
       const exactMatch = await storage.loadRefreshToken('XYZ Roofing Company');
       expect(exactMatch).toEqual({
         ...testToken1,
-        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
+        expiresAt: testToken1.expiresAt
       });
     });
 
@@ -164,7 +154,7 @@ describe('TokenStorage', () => {
       expect(loaded1).toBeNull();
       expect(loaded2).toEqual({
         ...testToken2,
-        expiresAt: Math.floor(testToken2.expiresAt / 1000) * 1000
+        expiresAt: testToken2.expiresAt
       });
     });
 
@@ -179,7 +169,7 @@ describe('TokenStorage', () => {
       
       expect(loaded1).toEqual({
         ...testToken1,
-        expiresAt: Math.floor(testToken1.expiresAt / 1000) * 1000
+        expiresAt: testToken1.expiresAt
       });
       expect(loaded2).toBeNull();
     });
@@ -322,10 +312,14 @@ describe('TokenDatabase', () => {
   });
 
   describe('database operations', () => {
-    it('should create database file', () => {
-      // Database is initialized in constructor
-      const dbPath = path.join(testDir, '.summon', 'tokens.db');
-      expect(fs.existsSync(dbPath)).toBe(true);
+    it('should create JSON file', () => {
+      // Save a token to ensure file is created
+      db.saveToken(testToken1);
+      
+      const isProduction = process.env.QB_PRODUCTION === 'true';
+      const environment = isProduction ? 'production' : 'sandbox';
+      const jsonPath = path.join(testDir, '.summon', `tokens-${environment}.json`);
+      expect(fs.existsSync(jsonPath)).toBe(true);
     });
 
     it('should handle concurrent operations', () => {

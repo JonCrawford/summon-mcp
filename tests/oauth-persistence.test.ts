@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { TokenDatabase } from '../src/token-database.js';
-import { TokenStorage } from '../src/token-storage.js';
+import { TokenStorage, TokenDatabase } from '../src/token-storage.js';
 import { TokenManager } from '../src/token-manager.js';
 import * as fs from 'fs';
 import * as path from 'path';
