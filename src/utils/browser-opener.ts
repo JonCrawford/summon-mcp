@@ -27,9 +27,12 @@ export function openUrlInBrowser(url: string): void {
         spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
         break;
       case 'win32':
-        // Windows requires using cmd.exe with start command
-        // The empty string "" is for the window title
-        spawn('cmd.exe', ['/c', 'start', '""', url], { 
+        // FIXED: Windows requires proper URL quoting to handle ampersands
+        // The ampersands (&) in URLs are treated as command separators by cmd.exe
+        // unless the URL is properly quoted. This was causing OAuth URLs to be
+        // truncated after the first parameter.
+        // The empty string "" is for the window title, and the URL is now quoted
+        spawn('cmd.exe', ['/c', 'start', '""', `"${url}"`], { 
           detached: true, 
           stdio: 'ignore',
           shell: false 
@@ -41,11 +44,27 @@ export function openUrlInBrowser(url: string): void {
     }
   } catch (error) {
     console.error('Failed to open browser:', error);
-    // Fallback: try using shell: true as last resort
-    try {
-      spawn(url, [], { shell: true, detached: true, stdio: 'ignore' }).unref();
-    } catch (fallbackError) {
-      console.error('Fallback browser opening also failed:', fallbackError);
+    
+    // Enhanced fallback for Windows
+    if (os === 'win32') {
+      try {
+        // Try alternative Windows approach using shell: true
+        spawn('start', [`""`, `"${url}"`], { 
+          shell: true, 
+          detached: true, 
+          stdio: 'ignore' 
+        }).unref();
+        console.error('Windows: Used fallback browser opening method');
+      } catch (fallbackError) {
+        console.error('Windows: All browser opening methods failed:', fallbackError);
+      }
+    } else {
+      // Original fallback for other platforms
+      try {
+        spawn(url, [], { shell: true, detached: true, stdio: 'ignore' }).unref();
+      } catch (fallbackError) {
+        console.error('Fallback browser opening also failed:', fallbackError);
+      }
     }
   }
 }

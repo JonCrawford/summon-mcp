@@ -68,7 +68,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: false, // No file writes in DXT
                 enableResourcesAndPrompts: true,
-                version: '2.0.23',
+                version: '2.0.25',
             };
 
         case ServerMode.PRODUCTION:
@@ -76,7 +76,7 @@ function getServerConfig(mode: ServerMode): ServerConfig {
                 mode,
                 enableFileLogging: true, // Enable logging in production
                 enableResourcesAndPrompts: true,
-                version: '2.0.23',
+                version: '2.0.25',
             };
 
         case ServerMode.DEVELOPMENT:
@@ -94,6 +94,20 @@ function getServerConfig(mode: ServerMode): ServerConfig {
 async function initializeServer(): Promise<void> {
     const mode = detectServerMode();
     const config = getServerConfig(mode);
+    
+    // Log environment debug info immediately
+    if (mode === ServerMode.DXT) {
+        logger.info('=== DXT Environment Debug ===');
+        logger.info(`Platform: ${process.platform}`);
+        logger.info(`Node version: ${process.version}`);
+        logger.info('Environment variables:');
+        Object.keys(process.env).sort().forEach(key => {
+            if (key.startsWith('QB_') || key.startsWith('DXT_') || key === 'NODE_ENV') {
+                logger.info(`  ${key}: ${key.includes('SECRET') ? '[REDACTED]' : process.env[key]}`);
+            }
+        });
+        logger.info('=== End Debug ===');
+    }
 
     // Configure logging based on mode
     if (!config.enableFileLogging) {
@@ -145,6 +159,14 @@ async function initializeServer(): Promise<void> {
             const clientId = process.env.QB_CLIENT_ID;
             const clientSecret = process.env.QB_CLIENT_SECRET;
             hasCredentials = !!(clientId && clientSecret);
+            
+            // Debug Windows environment variables
+            logger.info('=== Windows Debug: Checking Credentials ===');
+            logger.info(`QB_CLIENT_ID: ${clientId ? 'SET' : 'NOT SET'}`);
+            logger.info(`QB_CLIENT_SECRET: ${clientSecret ? 'SET' : 'NOT SET'}`);
+            logger.info(`hasCredentials: ${hasCredentials}`);
+            logger.info(`All QB_ vars: ${Object.keys(process.env).filter(k => k.startsWith('QB_')).join(', ')}`);
+            logger.info('=== End Windows Debug ===');
 
             if (!tokenManager) {
                 tokenManager = new TokenManager();
