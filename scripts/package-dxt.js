@@ -15,7 +15,7 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const version = manifest.version;
 
 // Generate filename
-const outputFile = `quickbooks-mcp-${version}.dxt`;
+const outputFile = `quickbooks-mcp-v${version}.dxt`;
 
 console.log(`Packaging DXT extension version ${version}...`);
 

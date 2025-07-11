@@ -11,32 +11,33 @@ Edit `src/mock-token-broker.ts` and update the following with your actual data:
 ```typescript
 // Replace these with your actual company details
 const MOCK_COMPANIES: Company[] = [
-  {
-    id: 'company-1',
-    name: 'Your Company Name',        // <- Change this
-    realmId: 'YOUR_REALM_ID',        // <- Change this
-    createdAt: '2024-01-01T00:00:00Z',
-    lastAccessed: new Date().toISOString()
-  },
-  // Add more companies as needed
+    {
+        id: 'company-1',
+        name: 'Your Company Name', // <- Change this
+        realmId: 'YOUR_REALM_ID', // <- Change this
+        createdAt: '2024-01-01T00:00:00Z',
+        lastAccessed: new Date().toISOString(),
+    },
+    // Add more companies as needed
 ];
 
 // Replace with your actual refresh tokens
 const MOCK_TOKENS: Record<string, QuickBooksToken> = {
-  'company-1': {
-    access_token: 'will-be-refreshed',
-    refresh_token: 'YOUR_ACTUAL_REFRESH_TOKEN',  // <- Change this
-    realm_id: 'YOUR_REALM_ID',                   // <- Change this
-    company_name: 'Your Company Name',           // <- Change this
-    expires_at: Date.now() + 3600000
-  },
-  // Add more tokens as needed
+    'company-1': {
+        access_token: 'will-be-refreshed',
+        refresh_token: 'YOUR_ACTUAL_REFRESH_TOKEN', // <- Change this
+        realm_id: 'YOUR_REALM_ID', // <- Change this
+        company_name: 'Your Company Name', // <- Change this
+        expires_at: Date.now() + 3600000,
+    },
+    // Add more tokens as needed
 };
 ```
 
 ### 2. Start the Mock Token Broker
 
 In terminal 1:
+
 ```bash
 npm run start:mock-broker
 ```
@@ -49,17 +50,17 @@ Add to your Claude Desktop configuration:
 
 ```json
 {
-  "mcpServers": {
-    "quickbooks": {
-      "command": "node",
-      "args": ["/path/to/quickbooks-mcp2/dist/server-broker.js"],
-      "env": {
-        "brokerApiUrl": "http://localhost:3000",
-        "brokerApiToken": "demo-token-123",
-        "enableDebugLogging": "true"
-      }
+    "mcpServers": {
+        "quickbooks": {
+            "command": "node",
+            "args": ["/path/to/summon-quickbooks-mcp/dist/server-broker.js"],
+            "env": {
+                "brokerApiUrl": "http://localhost:3000",
+                "brokerApiToken": "demo-token-123",
+                "enableDebugLogging": "true"
+            }
+        }
     }
-  }
 }
 ```
 
@@ -77,19 +78,20 @@ npm run package:dxt
 
 Once set up, you can use these commands in Claude:
 
-- **List companies**: "Show me all connected QuickBooks companies"
-- **Get invoices**: "Show me Acme Corporation's recent invoices"
-- **Financial report**: "Generate a P&L report for Widget Industries"
-- **Cache stats**: "Show me the cache performance metrics"
+-   **List companies**: "Show me all connected QuickBooks companies"
+-   **Get invoices**: "Show me Acme Corporation's recent invoices"
+-   **Financial report**: "Generate a P&L report for Widget Industries"
+-   **Cache stats**: "Show me the cache performance metrics"
 
 ## Getting Real Refresh Tokens
 
 To get actual refresh tokens for your demo:
 
 1. Use the legacy OAuth server:
-   ```bash
-   npm start
-   ```
+
+    ```bash
+    npm start
+    ```
 
 2. Navigate to http://localhost:8080/connect
 
@@ -102,23 +104,27 @@ To get actual refresh tokens for your demo:
 ## Security Note
 
 ⚠️ **For demos only!** The mock broker stores tokens in plain text. For production:
-- Use the real token broker with proper encryption
-- Never commit real tokens to source control
-- Use environment variables for sensitive data
+
+-   Use the real token broker with proper encryption
+-   Never commit real tokens to source control
+-   Use environment variables for sensitive data
 
 ## Troubleshooting
 
 ### Mock broker not responding
-- Check if port 3000 is available
-- Use `MOCK_BROKER_PORT=3001 npm run start:mock-broker` to change port
+
+-   Check if port 3000 is available
+-   Use `MOCK_BROKER_PORT=3001 npm run start:mock-broker` to change port
 
 ### Authentication errors
-- Verify the `brokerApiToken` matches between mock broker and Claude config
-- Check that refresh tokens are valid and not expired
+
+-   Verify the `brokerApiToken` matches between mock broker and Claude config
+-   Check that refresh tokens are valid and not expired
 
 ### Company not found
-- Ensure company names match exactly (case-sensitive)
-- Try using company ID or realm ID instead
+
+-   Ensure company names match exactly (case-sensitive)
+-   Try using company ID or realm ID instead
 
 ## Demo Architecture
 

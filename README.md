@@ -50,7 +50,7 @@ This project supports two architectures:
             "summon": {
                 "command": "npx",
                 "args": ["tsx", "src/server.ts"],
-                "cwd": "/Users/jon/Projects/quickbooks-mcp2",
+                "cwd": "/Users/jon/Projects/summon-quickbooks-mcp",
                 "env": {
                     "QB_CLIENT_ID": "your_client_id",
                     "QB_CLIENT_SECRET": "your_client_secret",
@@ -134,16 +134,16 @@ When running in Claude Desktop (DXT mode), you MUST pass the OAuth credentials a
 
 ```json
 {
-  "summon": {
-    "command": "npx",
-    "args": ["tsx", "/path/to/server.ts"],
-    "env": {
-      "QB_CLIENT_ID": "your_client_id",
-      "QB_CLIENT_SECRET": "your_client_secret",
-      "QB_PRODUCTION": "true",
-      "QB_STORAGE_DIR": "/Users/yourname/Documents"
+    "summon": {
+        "command": "npx",
+        "args": ["tsx", "/path/to/server.ts"],
+        "env": {
+            "QB_CLIENT_ID": "your_client_id",
+            "QB_CLIENT_SECRET": "your_client_secret",
+            "QB_PRODUCTION": "true",
+            "QB_STORAGE_DIR": "/Users/yourname/Documents"
+        }
     }
-  }
 }
 ```
 

@@ -3,6 +3,7 @@
 ## Step 1: Open Claude Desktop Config
 
 On Mac:
+
 1. Open Claude Desktop
 2. Click on "Claude" in the menu bar
 3. Select "Settings" (or press `Cmd + ,`)
@@ -17,18 +18,18 @@ Add this to your config file:
 
 ```json
 {
-  "mcpServers": {
-    "quickbooks": {
-      "command": "npx",
-      "args": ["tsx", "src/server.ts"],
-      "cwd": "/Users/jon/Projects/quickbooks-mcp2",
-      "env": {
-        "INTUIT_CLIENT_ID": "your_client_id",
-        "INTUIT_CLIENT_SECRET": "your_client_secret",
-        "QUICKBOOKS_PRODUCTION": "false"
-      }
+    "mcpServers": {
+        "quickbooks": {
+            "command": "npx",
+            "args": ["tsx", "src/server.ts"],
+            "cwd": "/Users/jon/Projects/summon-quickbooks-mcp",
+            "env": {
+                "INTUIT_CLIENT_ID": "your_client_id",
+                "INTUIT_CLIENT_SECRET": "your_client_secret",
+                "QUICKBOOKS_PRODUCTION": "false"
+            }
+        }
     }
-  }
 }
 ```
 
@@ -36,21 +37,21 @@ If you already have other servers, add it like this:
 
 ```json
 {
-  "mcpServers": {
-    "filesystem": {
-      // ... existing filesystem config
-    },
-    "quickbooks": {
-      "command": "npx",
-      "args": ["tsx", "src/server.ts"],
-      "cwd": "/Users/jon/Projects/quickbooks-mcp2",
-      "env": {
-        "INTUIT_CLIENT_ID": "your_client_id",
-        "INTUIT_CLIENT_SECRET": "your_client_secret",
-        "QUICKBOOKS_PRODUCTION": "false"
-      }
+    "mcpServers": {
+        "filesystem": {
+            // ... existing filesystem config
+        },
+        "quickbooks": {
+            "command": "npx",
+            "args": ["tsx", "src/server.ts"],
+            "cwd": "/Users/jon/Projects/summon-quickbooks-mcp",
+            "env": {
+                "INTUIT_CLIENT_ID": "your_client_id",
+                "INTUIT_CLIENT_SECRET": "your_client_secret",
+                "QUICKBOOKS_PRODUCTION": "false"
+            }
+        }
     }
-  }
 }
 ```
 
@@ -63,9 +64,10 @@ If you already have other servers, add it like this:
 ## Step 4: Verify It's Working
 
 In a new Claude conversation, try:
-- "Use the health_check tool"
-- "List QuickBooks customers"
-- "Show me recent invoices"
+
+-   "Use the health_check tool"
+-   "List QuickBooks customers"
+-   "Show me recent invoices"
 
 ## Troubleshooting
 
@@ -74,21 +76,21 @@ If it's not working:
 1. **Check the MCP icon** - It should show in the Claude interface
 2. **Check logs**: Developer → Logs
 3. **Verify tokens exist**:
-   ```bash
-   ls -la /Users/jon/Projects/quickbooks-mcp2/tokens.json
-   ```
+    ```bash
+    ls -la /Users/jon/Projects/summon-quickbooks-mcp/tokens.json
+    ```
 4. **Test manually**:
-   ```bash
-   cd /Users/jon/Projects/quickbooks-mcp2
-   npx tsx src/server.ts --stdio
-   ```
-   (Should wait for input, press Ctrl+C to exit)
+    ```bash
+    cd /Users/jon/Projects/summon-quickbooks-mcp
+    npx tsx src/server.ts --stdio
+    ```
+    (Should wait for input, press Ctrl+C to exit)
 
 ## Common Issues
 
-- **No MCP icon**: Config not loaded - check JSON syntax
-- **Tools not found**: Server didn't start - check logs
-- **Auth errors**: tokens.json missing or expired - run `npm run refresh-tokens`
+-   **No MCP icon**: Config not loaded - check JSON syntax
+-   **Tools not found**: Server didn't start - check logs
+-   **Auth errors**: tokens.json missing or expired - run `npm run refresh-tokens`
 
 ## Production Mode
 

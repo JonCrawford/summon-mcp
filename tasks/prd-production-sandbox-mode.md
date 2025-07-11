@@ -25,39 +25,46 @@ This feature adds a configuration option to the QuickBooks MCP server that allow
 ## Functional Requirements
 
 1. **Configuration Field**: The system must accept a `production` boolean field in the MCP JSON configuration
-   - `true` = production mode
-   - `false` = sandbox mode (default)
+
+    - `true` = production mode
+    - `false` = sandbox mode (default)
 
 2. **Default Behavior**: The system must default to sandbox mode when:
-   - No `production` field is specified
-   - The `production` field is null or undefined
-   - The `production` field is explicitly set to `false`
+
+    - No `production` field is specified
+    - The `production` field is null or undefined
+    - The `production` field is explicitly set to `false`
 
 3. **OAuth URLs**: The system must use different OAuth URLs based on the mode:
-   - Sandbox: Current URLs (already implemented)
-   - Production: Production QuickBooks OAuth URLs
+
+    - Sandbox: Current URLs (already implemented)
+    - Production: Production QuickBooks OAuth URLs
 
 4. **API Endpoints**: The system must direct all QuickBooks API calls to the appropriate environment:
-   - Sandbox: `sandbox-quickbooks.api.intuit.com`
-   - Production: `quickbooks.api.intuit.com`
+
+    - Sandbox: `sandbox-quickbooks.api.intuit.com`
+    - Production: `quickbooks.api.intuit.com`
 
 5. **Mode Indication**: The system must clearly indicate the current mode in:
-   - Server startup logs
-   - Health check responses
-   - The Server Info resource
+
+    - Server startup logs
+    - Health check responses
+    - The Server Info resource
 
 6. **Configuration Validation**: The system must validate the `production` field:
-   - Accept only boolean values (true/false)
-   - Reject invalid values with clear error messages
+
+    - Accept only boolean values (true/false)
+    - Reject invalid values with clear error messages
 
 7. **Token Isolation**: The system must store tokens separately for each mode:
-   - Sandbox tokens: `tokens-sandbox.json`
-   - Production tokens: `tokens-production.json`
+
+    - Sandbox tokens: `tokens-sandbox.json`
+    - Production tokens: `tokens-production.json`
 
 8. **Environment Propagation**: The mode setting must be propagated to:
-   - OAuth client initialization
-   - QuickBooks client initialization
-   - All API calls
+    - OAuth client initialization
+    - QuickBooks client initialization
+    - All API calls
 
 ## Non-Goals (Out of Scope)
 
@@ -72,45 +79,47 @@ This feature adds a configuration option to the QuickBooks MCP server that allow
 ### Configuration Examples
 
 **Sandbox Mode (Default):**
+
 ```json
 {
-  "mcpServers": {
-    "quickbooks-mcp": {
-      "command": "npx",
-      "args": ["tsx", "src/server.ts"],
-      "cwd": "/path/to/quickbooks-mcp2",
-      "env": {
-        "INTUIT_CLIENT_ID": "sandbox_client_id",
-        "INTUIT_CLIENT_SECRET": "sandbox_client_secret"
-      }
+    "mcpServers": {
+        "quickbooks-mcp": {
+            "command": "npx",
+            "args": ["tsx", "src/server.ts"],
+            "cwd": "/path/to/summon-quickbooks-mcp",
+            "env": {
+                "INTUIT_CLIENT_ID": "sandbox_client_id",
+                "INTUIT_CLIENT_SECRET": "sandbox_client_secret"
+            }
+        }
     }
-  }
 }
 ```
 
 **Production Mode:**
+
 ```json
 {
-  "mcpServers": {
-    "quickbooks-mcp": {
-      "command": "npx",
-      "args": ["tsx", "src/server.ts"],
-      "cwd": "/path/to/quickbooks-mcp2",
-      "env": {
-        "INTUIT_CLIENT_ID": "production_client_id",
-        "INTUIT_CLIENT_SECRET": "production_client_secret",
-        "QUICKBOOKS_PRODUCTION": "true"
-      }
+    "mcpServers": {
+        "quickbooks-mcp": {
+            "command": "npx",
+            "args": ["tsx", "src/server.ts"],
+            "cwd": "/path/to/summon-quickbooks-mcp",
+            "env": {
+                "INTUIT_CLIENT_ID": "production_client_id",
+                "INTUIT_CLIENT_SECRET": "production_client_secret",
+                "QUICKBOOKS_PRODUCTION": "true"
+            }
+        }
     }
-  }
 }
 ```
 
 ### Visual Feedback
 
-- Startup log: `[QuickBooks MCP] Starting in SANDBOX mode`
-- Health check response: Include `"mode": "sandbox"` or `"mode": "production"`
-- Server Info resource: Include mode in the capabilities
+-   Startup log: `[QuickBooks MCP] Starting in SANDBOX mode`
+-   Health check response: Include `"mode": "sandbox"` or `"mode": "production"`
+-   Server Info resource: Include mode in the capabilities
 
 ## Technical Considerations
 
@@ -139,21 +148,24 @@ This feature adds a configuration option to the QuickBooks MCP server that allow
 ## Testing Requirements
 
 1. **Unit Tests**:
-   - Configuration parsing with various inputs (true, false, undefined, null, invalid)
-   - OAuth URL generation for both modes
-   - Token file path generation for both modes
+
+    - Configuration parsing with various inputs (true, false, undefined, null, invalid)
+    - OAuth URL generation for both modes
+    - Token file path generation for both modes
 
 2. **Integration Tests**:
-   - API calls go to correct endpoints in each mode
-   - OAuth flow works correctly in both modes
-   - Token storage isolation between modes
+
+    - API calls go to correct endpoints in each mode
+    - OAuth flow works correctly in both modes
+    - Token storage isolation between modes
 
 3. **End-to-End Tests**:
-   - Server starts successfully in both modes
-   - Health check reports correct mode
-   - All tools work correctly in each mode
+
+    - Server starts successfully in both modes
+    - Health check reports correct mode
+    - All tools work correctly in each mode
 
 4. **Error Case Tests**:
-   - Invalid configuration values are rejected
-   - Mismatched credentials are handled gracefully
-   - Clear error messages for configuration issues
+    - Invalid configuration values are rejected
+    - Mismatched credentials are handled gracefully
+    - Clear error messages for configuration issues

@@ -62,19 +62,22 @@ npm run lint
 The MCP server ensures that the LLM always communicates which QuickBooks company it's operating on:
 
 1. **Tool Responses Include Context**: All tool responses include a `_context` field with:
-   - `company_name`: The name of the company being queried
-   - `realm_id`: The unique identifier for the company
-   - `_instruction`: Specific guidance on how to present the data
+
+    - `company_name`: The name of the company being queried
+    - `realm_id`: The unique identifier for the company
+    - `_instruction`: Specific guidance on how to present the data
 
 2. **Tool Descriptions**: All QuickBooks tools include instructions in their descriptions to:
-   - Always mention the company name when presenting results
-   - Check the _context field for company details
-   - Be explicit about which company's data is being shown
+
+    - Always mention the company name when presenting results
+    - Check the \_context field for company details
+    - Be explicit about which company's data is being shown
 
 3. **List Companies Tool**: Returns structured guidance for how to communicate about connected companies:
-   - Single company: Instructs to always mention the company name
-   - Multiple companies: Instructs to ask which company to query
-   - No companies: Instructs to suggest authentication
+
+    - Single company: Instructs to always mention the company name
+    - Multiple companies: Instructs to ask which company to query
+    - No companies: Instructs to suggest authentication
 
 4. **Health Check**: Includes a reminder about company identification when presenting QuickBooks data
 
@@ -194,7 +197,7 @@ PORT=8080  # Optional, defaults to 8080
 To install the QuickBooks MCP server in Claude Code with production mode:
 
 ```bash
-claude mcp add summon -e QB_CLIENT_ID=ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8 -e QB_CLIENT_SECRET=BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx -e QB_PRODUCTION=true -e QB_STORAGE_DIR=$HOME/.summon -- npx tsx /Users/jon/Projects/quickbooks-mcp2/src/server.ts
+claude mcp add summon -e QB_CLIENT_ID=ABRlxZcZnmwYNGFoi1MopMid2ac7sgAm6UNN8D46dxQb5yKch8 -e QB_CLIENT_SECRET=BIZNbkZ8B8kwWxGl3SX8Cwr0t0osNRSgO0pw5mxx -e QB_PRODUCTION=true -e QB_STORAGE_DIR=$HOME/.summon -- npx tsx /Users/jon/Projects/summon-quickbooks-mcp/src/server.ts
 ```
 
 For sandbox mode (development), omit the `QB_PRODUCTION` environment variable or set it to `false`.
